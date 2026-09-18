@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Proxmark3 - Deutsche Oberflaeche</title>
+  <link rel="stylesheet" href="stil.css" />
+</head>
+<body>
+  <header class="kopf">
+    <div class="kopf-links">
+      <span class="logo">&#128225;</span>
+      <div>
+        <h1>Proxmark3 &ndash; Deutsche Oberflaeche</h1>
+        <p class="untertitel">Alle Funktionen des Clients zum Anklicken</p>
+      </div>
+    </div>
+    <div id="status-anzeige" class="status status--laedt" title="Verbindungsstatus">
+      <span class="status-punkt"></span>
+      <span id="status-text">verbinde&hellip;</span>
+    </div>
+  </header>
+
+  <nav class="reiter" role="tablist">
+    <button class="reiter-knopf aktiv" data-reiter="befehle" role="tab">Befehle</button>
+    <button class="reiter-knopf" data-reiter="assistent" role="tab">Assistent</button>
+    <button class="reiter-knopf" data-reiter="konsole" role="tab">Konsole</button>
+    <button class="reiter-knopf" data-reiter="installation" role="tab">Installation</button>
+    <button class="reiter-knopf" data-reiter="glossar" role="tab">Lexikon</button>
+    <button class="reiter-knopf" data-reiter="hilfe" role="tab">Hilfe</button>
+  </nav>
+
+  <main>
+    <!-- Reiter: Befehle -->
+    <section id="reiter-befehle" class="reiter-inhalt aktiv">
+      <div class="werkzeugleiste">
+        <input id="suche" type="search" placeholder="Befehl suchen &hellip; (z. B. dump, mifare, klonen)" autocomplete="off" />
+        <label class="schalter">
+          <input id="nur-offline" type="checkbox" />
+          <span>nur ohne Geraet nutzbar</span>
+        </label>
+        <label class="schalter">
+          <input id="nur-einfach" type="checkbox" />
+          <span>nur einfache Befehle</span>
+        </label>
+      </div>
+      <div class="inhalt-spalten">
+        <aside id="kategorien" class="kategorienliste" aria-label="Kategorien"></aside>
+        <div id="befehlsbereich" class="befehlsbereich"></div>
+      </div>
+    </section>
+
+    <!-- Reiter: Assistent -->
+    <section id="reiter-assistent" class="reiter-inhalt">
+      <div class="karten-raster" id="assistent-raster"></div>
+    </section>
+
+    <!-- Reiter: Konsole -->
+    <section id="reiter-konsole" class="reiter-inhalt">
+      <div class="konsole-eingabe">
+        <span class="eingabe-zeichen">pm3&gt;</span>
+        <input id="konsole-feld" type="text" placeholder="Befehl eingeben und Enter druecken &hellip;" autocomplete="off" />
+        <button id="konsole-senden" class="knopf knopf--haupt">Ausfuehren</button>
+      </div>
+      <p class="hinweis-klein">Es werden nur Befehle aus dem Proxmark3-Katalog akzeptiert. Mit Pfeiltasten hoch/runter blaettern Sie durch fruehere Eingaben.</p>
+      <pre id="konsole-ausgabe" class="konsole-ausgabe" aria-live="polite"></pre>
+    </section>
+
+    <!-- Reiter: Installation -->
+    <section id="reiter-installation" class="reiter-inhalt">
+      <div id="installation-inhalt" class="dokument"></div>
+    </section>
+
+    <!-- Reiter: Glossar -->
+    <section id="reiter-glossar" class="reiter-inhalt">
+      <div id="glossar-inhalt" class="dokument"></div>
+    </section>
+
+    <!-- Reiter: Hilfe -->
+    <section id="reiter-hilfe" class="reiter-inhalt">
+      <div class="dokument" id="hilfe-inhalt"></div>
+    </section>
+  </main>
+
+  <!-- Dialog fuer Befehlsdetails -->
+  <div id="dialog-huelle" class="dialog-huelle" hidden>
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-titel">
+      <button class="dialog-schliessen" id="dialog-schliessen" aria-label="Schliessen">&times;</button>
+      <div id="dialog-inhalt"></div>
+    </div>
+  </div>
+
+  <footer class="fuss">
+    <span id="fuss-info">Proxmark3-GUI</span>
+    <span>Huelle um den offiziellen Client &middot; RfidResearchGroup/proxmark3</span>
+  </footer>
+
+  <script src="texte.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

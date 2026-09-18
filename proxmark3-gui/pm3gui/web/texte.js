@@ -1,0 +1,140 @@
+"use strict";
+
+// Laengere deutsche Texte fuer die Reiter "Installation" und "Hilfe".
+// Getrennt gehalten, damit app.js uebersichtlich bleibt.
+
+const TEXTE = {
+  installation: `
+    <h2>Proxmark3 einrichten</h2>
+    <p>Diese Oberflaeche ist eine <strong>Huelle um den offiziellen Proxmark3-Client</strong>.
+    Damit echte Befehle an das Geraet gehen, muss dieser Client einmal installiert werden.
+    Ohne Installation laeuft alles im <em>Demo-Modus</em> &ndash; zum Ausprobieren und Lernen.</p>
+    <p>Empfohlen wird die weit verbreitete Iceman-Firmware:
+    <code>RfidResearchGroup/proxmark3</code>. Waehlen Sie unten Ihr Betriebssystem.</p>
+
+    <div class="betriebssystem-waehler">
+      <button class="os-knopf aktiv" data-os="windows">Windows</button>
+      <button class="os-knopf" data-os="linux">Linux</button>
+      <button class="os-knopf" data-os="macos">macOS</button>
+    </div>
+
+    <div class="os-abschnitt aktiv" data-os="windows">
+      <h3>Windows &ndash; ueber ProxSpace</h3>
+      <ol class="schritt-liste">
+        <li>Laden Sie <strong>ProxSpace</strong> von
+          <code>github.com/Gator96100/ProxSpace</code> herunter und entpacken Sie es
+          nach <code>C:\\ProxSpace</code> (Pfad ohne Leerzeichen und Umlaute).</li>
+        <li>Starten Sie <code>runme64.bat</code>. Es oeffnet sich ein Terminalfenster.</li>
+        <li>Firmware holen:
+          <pre><code>git clone https://github.com/RfidResearchGroup/proxmark3.git
+cd proxmark3</code></pre></li>
+        <li>Uebersetzen und installieren:
+          <pre><code>make clean &amp;&amp; make -j</code></pre></li>
+        <li>Proxmark ueber USB anschliessen. Windows vergibt einen COM-Port
+          (z. B. <code>COM5</code>) &ndash; siehe Geraete-Manager.</li>
+        <li>Testen:
+          <pre><code>pm3 -p COM5</code></pre>
+          Anschliessend im Client <code>hw status</code> eingeben.</li>
+      </ol>
+      <p class="hinweis-klein">Tipp: Diese GUI findet den Client auch dann, wenn <code>pm3.exe</code>
+      unter <code>C:\\ProxSpace\\pm3</code> liegt.</p>
+    </div>
+
+    <div class="os-abschnitt" data-os="linux">
+      <h3>Linux (Debian / Ubuntu / Raspberry Pi)</h3>
+      <ol class="schritt-liste">
+        <li>Benoetigte Pakete installieren:
+          <pre><code>sudo apt update
+sudo apt install --no-install-recommends git ca-certificates build-essential pkg-config \\
+  libreadline-dev gcc-arm-none-eabi libnewlib-dev qtbase5-dev libbz2-dev libbluetooth-dev \\
+  libpython3-dev libssl-dev</code></pre></li>
+        <li>Ihren Benutzer der Gruppe <code>dialout</code> hinzufuegen (fuer USB-Zugriff),
+          danach neu anmelden:
+          <pre><code>sudo usermod -aG dialout $USER</code></pre></li>
+        <li>Quellcode holen:
+          <pre><code>git clone https://github.com/RfidResearchGroup/proxmark3.git
+cd proxmark3</code></pre></li>
+        <li>Uebersetzen und installieren:
+          <pre><code>make clean &amp;&amp; make -j$(nproc)
+sudo make install</code></pre></li>
+        <li>Proxmark anschliessen und testen:
+          <pre><code>pm3</code></pre>
+          Im Client dann <code>hw status</code> eingeben.</li>
+      </ol>
+      <p class="hinweis-klein">Der Anschluss heisst unter Linux meist <code>/dev/ttyACM0</code>.
+      Diese GUI erkennt ihn automatisch.</p>
+    </div>
+
+    <div class="os-abschnitt" data-os="macos">
+      <h3>macOS &ndash; ueber Homebrew</h3>
+      <ol class="schritt-liste">
+        <li>Falls noch nicht vorhanden, <strong>Homebrew</strong> installieren
+          (siehe <code>brew.sh</code>).</li>
+        <li>Fertige Formel installieren:
+          <pre><code>brew install rfidresearchgroup/proxmark3/proxmark3</code></pre>
+          Alternativ selbst uebersetzen (siehe Projektwiki).</li>
+        <li>Proxmark anschliessen und testen:
+          <pre><code>pm3</code></pre>
+          Im Client dann <code>hw status</code> eingeben.</li>
+      </ol>
+      <p class="hinweis-klein">Der Anschluss heisst unter macOS meist
+      <code>/dev/tty.usbmodemiceman1</code>. Diese GUI erkennt ihn automatisch.</p>
+    </div>
+
+    <h3>Woran erkenne ich, dass alles laeuft?</h3>
+    <p>Oben rechts zeigt diese Oberflaeche den Status an:</p>
+    <ul>
+      <li><strong>Geraet verbunden</strong> (gruen) &ndash; Client gefunden, Proxmark angeschlossen. Alle Befehle funktionieren.</li>
+      <li><strong>Client bereit (kein Geraet)</strong> (blau) &ndash; Client installiert, aber kein Proxmark angesteckt. Offline-Befehle funktionieren.</li>
+      <li><strong>Demo-Modus</strong> (gelb) &ndash; kein Client gefunden. Zum Ausprobieren; es wird nichts gesendet.</li>
+    </ul>
+    <p class="hinweis-klein">Liegt Ihr Client an einem ungewoehnlichen Ort, koennen Sie den Pfad
+    ueber die Umgebungsvariable <code>PM3_CLIENT</code> vorgeben.</p>
+  `,
+
+  hilfe: `
+    <h2>Kurzanleitung</h2>
+    <p>Diese Oberflaeche macht die Funktionen des Proxmark3-Clients zum Anklicken.
+    Sie sendet dabei genau die Befehle, die man sonst von Hand tippen wuerde.</p>
+
+    <h3>Die Reiter im Ueberblick</h3>
+    <ul>
+      <li><strong>Befehle</strong> &ndash; alle Funktionen nach Kategorie (Hochfrequenz, Niederfrequenz, Hardware &hellip;).
+        Links die Kategorie waehlen, dann auf eine Karte klicken.</li>
+      <li><strong>Assistent</strong> &ndash; fertige Ablaeufe fuer haeufige Aufgaben. Ein Klick fuehrt mehrere Schritte nacheinander aus.</li>
+      <li><strong>Konsole</strong> &ndash; direkte Eingabe fuer Fortgeschrittene, mit Verlauf ueber die Pfeiltasten.</li>
+      <li><strong>Installation</strong> &ndash; Schritt-fuer-Schritt-Einrichtung des Clients.</li>
+      <li><strong>Lexikon</strong> &ndash; kurze Erklaerungen zu Fachbegriffen.</li>
+    </ul>
+
+    <h3>So gehen Sie am besten vor</h3>
+    <ol class="schritt-liste">
+      <li>Pruefen Sie oben rechts den Status. Steht dort <em>Demo-Modus</em>, richten Sie zuerst den Client ein (Reiter Installation).</li>
+      <li>Legen Sie eine Karte auf die Antenne des Proxmark.</li>
+      <li>Wissen Sie nicht, was fuer eine Karte das ist? Reiter <strong>Assistent</strong> &rarr; &bdquo;Ich weiss nicht, was fuer eine Karte das ist&ldquo;.</li>
+      <li>Zum gezielten Arbeiten den Reiter <strong>Befehle</strong> nutzen und die passende Kategorie waehlen.</li>
+    </ol>
+
+    <h3>Farben der Markierungen</h3>
+    <ul>
+      <li><span class="marke marke--anfaenger">einfach</span> &ndash; gut zum Einsteigen, meist ungefaehrlich.</li>
+      <li><span class="marke marke--fortgeschritten">mittel</span> &ndash; setzt etwas Vorwissen voraus.</li>
+      <li><span class="marke marke--experte">Experte</span> &ndash; nur mit Verstaendnis der Technik verwenden.</li>
+      <li><span class="marke marke--offline">ohne Geraet</span> &ndash; funktioniert auch ohne angeschlossenen Proxmark.</li>
+      <li><span class="marke marke--warnung">&#9888; Achtung</span> &ndash; kann eine Karte oder einen Chip dauerhaft veraendern. Vorher den Warnhinweis lesen.</li>
+    </ul>
+
+    <h3>Wichtiger Hinweis zum verantwortungsvollen Umgang</h3>
+    <p>Der Proxmark3 ist ein Werkzeug fuer Sicherheitsforschung, Technikverstaendnis und die Arbeit
+    mit den <strong>eigenen</strong> Karten und Anlagen. Setzen Sie ihn nur an Karten und Systemen ein,
+    die Ihnen gehoeren oder fuer die Sie eine ausdrueckliche Erlaubnis haben. Das Auslesen, Kopieren
+    oder Nachbilden fremder Karten kann rechtlich unzulaessig sein.</p>
+
+    <h3>Nichts geht?</h3>
+    <ul>
+      <li><strong>Kein Geraet erkannt:</strong> USB-Kabel pruefen (Datenkabel, nicht nur Ladekabel), unter Linux Gruppe <code>dialout</code> pruefen.</li>
+      <li><strong>Befehl bleibt haengen:</strong> Es gibt ein Zeitlimit je Befehl (Standard 60 s). Beim Start ueber <code>--zeitlimit</code> anpassbar.</li>
+      <li><strong>Client zu alt/neu:</strong> <code>hw version</code> zeigt an, ob Client und Firmware zusammenpassen.</li>
+    </ul>
+  `,
+};
