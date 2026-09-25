@@ -10,6 +10,7 @@ const Zustand = {
   nurOffline: false,
   nurEinfach: false,
   demo: true,
+  geraet: null, // letzter Stand von /api/zustand
   verlauf: [],
   verlaufZeiger: -1,
 };
@@ -32,8 +33,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   sucheEinrichten();
   konsoleEinrichten();
   await katalogLaden();
-  await zustandAktualisieren();
   installationRendern();
+  verbindungBoxRendern();
+  await zustandAktualisieren();
+  betriebssystemVorwaehlen();
   hilfeRendern();
   glossarRendern();
   assistentRendern();
@@ -60,31 +63,50 @@ async function katalogLaden() {
 async function zustandAktualisieren() {
   try {
     const antwort = await fetch("/api/zustand");
-    const z = await antwort.json();
-    Zustand.demo = z.demo;
-    const anzeige = $("#status-anzeige");
-    const text = $("#status-text");
-    anzeige.className = "status";
-    if (z.demo) {
-      anzeige.classList.add("status--demo");
-      text.textContent = "Demo-Modus";
-    } else if (z.geraet_verbunden) {
-      anzeige.classList.add("status--verbunden");
-      text.textContent = "Geraet verbunden";
-    } else {
-      anzeige.classList.add("status--offline");
-      text.textContent = "Client bereit (kein Geraet)";
-    }
-    anzeige.title = z.meldung || "";
+    zustandAnzeigen(await antwort.json());
   } catch (fehler) {
     /* Server noch nicht bereit - ignorieren. */
   }
 }
 
+function zustandAnzeigen(z) {
+  Zustand.demo = z.demo;
+  Zustand.geraet = z;
+  verbindungInfoRendern();
+  const anzeige = $("#status-anzeige");
+  const text = $("#status-text");
+  anzeige.className = "status";
+  if (z.demo) {
+    anzeige.classList.add("status--demo");
+    text.textContent = "Demo-Modus";
+  } else if (z.geraet_verbunden) {
+    anzeige.classList.add("status--verbunden");
+    text.textContent = `Geraet verbunden (${z.geraet_anschluss})`;
+  } else {
+    anzeige.classList.add("status--offline");
+    text.textContent = "Client bereit (kein Geraet)";
+  }
+  anzeige.title = (z.meldung || "") + " – Klick oeffnet die Einrichtung.";
+}
+
 // ---------------------------------------------------------------------------
 // Reiter
 // ---------------------------------------------------------------------------
+function reiterZeigen(ziel) {
+  $$(".reiter-knopf").forEach((k) => k.classList.toggle("aktiv", k.dataset.reiter === ziel));
+  $$(".reiter-inhalt").forEach((a) => a.classList.toggle("aktiv", a.id === `reiter-${ziel}`));
+}
+
 function reiterEinrichten() {
+  // Direktaufruf eines Reiters ueber die Adresse, z. B. .../#installation
+  const ziel = location.hash.slice(1);
+  if (ziel && $(`#reiter-${ziel}`)) reiterZeigen(ziel);
+
+  const status = $("#status-anzeige");
+  status.addEventListener("click", () => reiterZeigen("installation"));
+  status.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" || e.key === " ") reiterZeigen("installation");
+  });
   $$(".reiter-knopf").forEach((knopf) => {
     knopf.addEventListener("click", () => {
       const ziel = knopf.dataset.reiter;
@@ -484,6 +506,125 @@ function installationRendern() {
           a.classList.toggle("aktiv", a.dataset.os === ziel));
       });
     });
+  }
+}
+
+function betriebssystemVorwaehlen() {
+  const os = { Windows: "windows", Linux: "linux", Darwin: "macos" }[Zustand.geraet?.betriebssystem];
+  const knopf = os && $(`#installation-inhalt .os-knopf[data-os="${os}"]`);
+  if (knopf) knopf.click();
+}
+
+// ---------------------------------------------------------------------------
+// Verbindung einrichten (oben im Reiter "Installation")
+// ---------------------------------------------------------------------------
+function verbindungBoxRendern() {
+  const box = $("#verbindung-box");
+  box.innerHTML =
+    `<h2>Verbindung einrichten</h2>` +
+    `<div id="verbindung-info" class="verbindung-info">Wird geprueft &hellip;</div>` +
+    `<div class="dialog-feld-zeile">` +
+      `<label for="feld-client">Pfad zum Proxmark3-Client (proxmark3.exe) &ndash; leer lassen fuer automatische Suche</label>` +
+      `<input id="feld-client" type="text" placeholder="z. B. C:\\ProxSpace\\pm3\\proxmark3\\client\\proxmark3.exe" />` +
+    `</div>` +
+    `<div class="dialog-feld-zeile">` +
+      `<label for="feld-anschluss">Anschluss (COM-Port) &ndash; leer lassen fuer automatische Erkennung</label>` +
+      `<input id="feld-anschluss" type="text" placeholder="z. B. COM5" />` +
+    `</div>` +
+    `<div class="dialog-knoepfe">` +
+      `<button class="knopf knopf--haupt" id="knopf-speichern">Speichern &amp; verbinden</button>` +
+      `<button class="knopf" id="knopf-suchen">Automatisch suchen</button>` +
+      `<button class="knopf" id="knopf-testen">Verbindung testen</button>` +
+    `</div>` +
+    `<p id="verbindung-meldung" class="hinweis-klein"></p>` +
+    `<p class="hinweis-klein">Tipp: Im Windows-Explorer mit gedrueckter Umschalttaste Rechtsklick auf ` +
+    `<code>proxmark3.exe</code> &rarr; &bdquo;Als Pfad kopieren&ldquo;, dann hier einfuegen.</p>`;
+
+  $("#knopf-speichern").addEventListener("click", verbindungSpeichern);
+  $("#knopf-suchen").addEventListener("click", async () => {
+    verbindungMeldung("Suche laeuft &hellip;");
+    const z = await postJson("/api/neu_suchen", {});
+    zustandAnzeigen(z);
+    verbindungMeldung(z.client_gefunden ? "Client gefunden." : "Kein Client gefunden &ndash; siehe Anleitung unten.");
+  });
+  $("#knopf-testen").addEventListener("click", () => befehlInKonsole("hw version"));
+}
+
+async function verbindungSpeichern() {
+  const daten = {
+    client_pfad: $("#feld-client").value.trim(),
+    anschluss: $("#feld-anschluss").value.trim(),
+  };
+  verbindungMeldung("Speichere &hellip;");
+  const z = await postJson("/api/einstellungen", daten);
+  if (z.erfolg === false) {
+    verbindungMeldung(`<span class="text-fehler">${escape(z.meldung || "Fehler beim Speichern.")}</span>`);
+    return;
+  }
+  zustandAnzeigen(z);
+  verbindungMeldung(
+    z.demo
+      ? "Gespeichert, aber noch kein Client aktiv."
+      : z.geraet_verbunden
+      ? `Gespeichert &ndash; verbunden an ${escape(z.geraet_anschluss)}. Mit &bdquo;Verbindung testen&ldquo; pruefen.`
+      : "Gespeichert &ndash; Client gefunden, aber kein Geraet erkannt."
+  );
+}
+
+function verbindungMeldung(html) {
+  $("#verbindung-meldung").innerHTML = html;
+}
+
+function verbindungInfoRendern() {
+  const info = $("#verbindung-info");
+  const z = Zustand.geraet;
+  if (!info || !z) return;
+
+  // Eingabefelder einmalig mit gespeicherten Werten fuellen (nicht beim Tippen ueberschreiben).
+  const feldClient = $("#feld-client");
+  const feldAnschluss = $("#feld-anschluss");
+  if (feldClient && !feldClient.dataset.gefuellt) {
+    feldClient.value = z.einstellungen?.client_pfad || "";
+    feldAnschluss.value = z.einstellungen?.anschluss || "";
+    feldClient.dataset.gefuellt = "1";
+  }
+
+  const zeile = (ok, text) =>
+    `<div class="info-zeile"><span class="info-symbol ${ok ? "ok" : "fehlt"}">${ok ? "\u2714" : "\u2716"}</span>${text}</div>`;
+
+  let html = "";
+  if (z.demo_erzwungen) {
+    html += zeile(false, "Demo-Modus ist per <code>--demo</code> eingeschaltet. Zum echten Betrieb ohne <code>--demo</code> starten.");
+  } else {
+    html += z.client_gefunden
+      ? zeile(true, `Client gefunden: <code>${escape(z.client_pfad)}</code>` +
+          (z.client_version ? `<br><span class="hinweis-klein">${escape(z.client_version)}</span>` : ""))
+      : zeile(false, "Kein Proxmark3-Client gefunden. Bitte installieren (Anleitung unten) oder Pfad eintragen.");
+    if (z.client_gefunden) {
+      html += z.geraet_verbunden
+        ? zeile(true, `Geraet erkannt an <code>${escape(z.geraet_anschluss)}</code>` +
+            (z.anschluesse.length > 1 ? ` <span class="hinweis-klein">(weitere: ${z.anschluesse.slice(1).map(escape).join(", ")})</span>` : ""))
+        : zeile(false, "Kein Geraet erkannt. USB-Kabel pruefen (Datenkabel!) und Proxmark einstecken.");
+    }
+  }
+  html += `<div class="info-zeile hinweis-klein">Gespeicherte Dateien (Abbilder, Mitschnitte) landen in <code>${escape(z.arbeitsordner)}</code></div>`;
+  if (!z.client_gefunden && (z.durchsucht || []).length) {
+    html += `<details class="hinweis-klein"><summary>Wo wurde gesucht?</summary><ul>` +
+      z.durchsucht.map((o) => `<li><code>${escape(o)}</code></li>`).join("") + `</ul></details>`;
+  }
+  info.innerHTML = html;
+}
+
+async function postJson(url, daten) {
+  try {
+    const antwort = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(daten),
+    });
+    return await antwort.json();
+  } catch (fehler) {
+    return { erfolg: false, meldung: String(fehler) };
   }
 }
 

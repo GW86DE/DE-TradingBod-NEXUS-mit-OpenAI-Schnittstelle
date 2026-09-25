@@ -52,7 +52,16 @@ Der Browser öffnet sich automatisch unter `http://127.0.0.1:8137/`.
 
 Die Oberfläche erkennt Client und Gerät selbstständig. Der Status oben rechts
 zeigt: **Gerät verbunden** (grün), **Client bereit / kein Gerät** (blau) oder
-**Demo-Modus** (gelb).
+**Demo-Modus** (gelb). Ein Klick darauf öffnet **Installation → Verbindung
+einrichten**. Dort sieht man, was gefunden wurde, und kann den Pfad zu
+`proxmark3.exe` sowie den COM-Port auch von Hand eintragen. Die Angaben werden in
+`einstellungen.json` gespeichert.
+
+Automatisch gesucht wird unter Windows u. a. in
+`C:\ProxSpace\pm3\proxmark3\client\proxmark3.exe`, `C:\Proxmark3\…` sowie in
+den Ordnern „Downloads“, „Desktop“ und „Dokumente“. Der COM-Port des Proxmark
+wird über seine USB-Kennung erkannt. Abbilder und Mitschnitte, die der Client
+speichert, landen im Ordner `Proxmark3-Dateien` im Benutzerverzeichnis.
 
 ### Zum Doppelklicken
 
@@ -103,12 +112,18 @@ gepflegt.
 python3 tests/test_katalog_und_server.py
 ```
 
-Prüft Generator, Katalog, Demo-Client und die HTTP-Schnittstelle – ganz ohne
-angeschlossenes Gerät.
+Prüft Generator, Katalog, Demo-Client, den Aufruf eines nachgebauten Clients
+(Port, Zeichensatz), die HTTP-Schnittstelle samt Schutzmaßnahmen sowie die
+Windows-Portsuche mit nachgebauter Registrierung – ganz ohne angeschlossenes Gerät.
 
 ## Sicherheit
 
 - Der Webserver bindet nur an `127.0.0.1` (nur der eigene Rechner).
+- Andere Webseiten, die im selben Browser offen sind, können keine Befehle
+  auslösen: Es werden nur JSON-Anfragen mit lokalem Host und passender Herkunft
+  angenommen.
+- Als Client-Pfad lässt sich nur eine Datei namens `proxmark3(.exe)` bzw. `pm3`
+  eintragen.
 - Es werden ausschließlich Befehle ausgeführt, die im Proxmark3-Katalog stehen –
   beliebige System- oder Shell-Befehle sind nicht möglich.
 - Der Client wird über `pm3 -c "<befehl>"` aufgerufen; diese GUI enthält keine

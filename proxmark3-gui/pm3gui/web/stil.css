@@ -238,6 +238,27 @@ main { padding: 20px; max-width: 1240px; margin: 0 auto; }
 .dialog-knoepfe { display: flex; gap: 10px; margin-top: 18px; }
 
 .leer-hinweis { color: var(--text-schwach); text-align: center; padding: 40px; }
+.hinweis-klein { color: var(--text-schwach); font-size: 13px; }
+.text-fehler { color: var(--rot); }
+.status { cursor: pointer; }
+.status:hover { border-color: var(--akzent); }
+
+/* Verbindung einrichten */
+.verbindung-box {
+  max-width: 820px; margin-bottom: 30px; padding: 20px 22px;
+  background: var(--hg2); border: 1px solid var(--rand); border-radius: var(--radius);
+}
+.verbindung-box h2 { margin: 0 0 12px; font-size: 20px; }
+.verbindung-info { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.info-zeile { display: flex; gap: 10px; align-items: flex-start; word-break: break-all; }
+.info-symbol { font-weight: 700; width: 18px; flex: none; }
+.info-symbol.ok { color: var(--gruen); }
+.info-symbol.fehlt { color: var(--rot); }
+.verbindung-box code {
+  font-family: ui-monospace, monospace; background: var(--hg3);
+  padding: 1px 6px; border-radius: 4px; font-size: 13px; color: var(--akzent);
+}
+.verbindung-box details { margin-top: 6px; }
 
 /* Fuss */
 .fuss {

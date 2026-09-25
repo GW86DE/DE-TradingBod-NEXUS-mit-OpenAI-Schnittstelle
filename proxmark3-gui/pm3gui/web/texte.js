@@ -19,25 +19,72 @@ const TEXTE = {
     </div>
 
     <div class="os-abschnitt aktiv" data-os="windows">
-      <h3>Windows &ndash; ueber ProxSpace</h3>
+      <h3>Windows &ndash; vorab wichtig</h3>
+      <ul>
+        <li><strong>Treiber:</strong> Windows 10 und 11 richten den Proxmark beim Einstecken selbst ein.
+          Er erscheint im Geraete-Manager unter &bdquo;Anschluesse (COM &amp; LPT)&ldquo; als
+          <code>COM3</code>, <code>COM5</code> o. Ae.</li>
+        <li><strong>Client und Firmware muessen zusammenpassen.</strong> Viele Geraete (vor allem
+          &bdquo;Proxmark3 Easy&ldquo;) kommen mit alter Firmware. Nach der Installation des Clients
+          muss dann einmal die passende Firmware aufgespielt werden (Schritt unten).</li>
+        <li><strong>Nur ein Programm gleichzeitig:</strong> Solange der Client in einem anderen Fenster
+          laeuft (z. B. <code>./pm3</code> in ProxSpace), ist der COM-Port belegt und diese Oberflaeche
+          kann nicht verbinden. Das andere Fenster also vorher mit <code>quit</code> beenden.</li>
+      </ul>
+
+      <h3>Weg 1 &ndash; fertiges Paket (am einfachsten)</h3>
       <ol class="schritt-liste">
-        <li>Laden Sie <strong>ProxSpace</strong> von
-          <code>github.com/Gator96100/ProxSpace</code> herunter und entpacken Sie es
-          nach <code>C:\\ProxSpace</code> (Pfad ohne Leerzeichen und Umlaute).</li>
-        <li>Starten Sie <code>runme64.bat</code>. Es oeffnet sich ein Terminalfenster.</li>
-        <li>Firmware holen:
+        <li>Auf <code>www.proxmarkbuilds.org</code> (in der offiziellen Proxmark3-Anleitung empfohlen)
+          das Windows-Paket der <strong>Iceman</strong>-Version herunterladen &ndash; passend zum Geraet:
+          <em>RDV4</em> oder <em>generic</em> (fuer Proxmark3 Easy und Nachbauten).</li>
+        <li>Die Datei entpacken, am besten nach <code>C:\\Proxmark3</code>.
+          Darin liegt <code>proxmark3.exe</code> &ndash; diese Oberflaeche sucht dort und in
+          &bdquo;Downloads&ldquo;/&bdquo;Desktop&ldquo; automatisch danach.</li>
+        <li>Oben auf <strong>&bdquo;Automatisch suchen&ldquo;</strong> klicken. Wird nichts gefunden,
+          den Pfad zu <code>proxmark3.exe</code> ins Feld eintragen und speichern.</li>
+        <li>Firmware aufspielen (siehe &bdquo;Firmware aufspielen&ldquo; unten), dann
+          <strong>&bdquo;Verbindung testen&ldquo;</strong>.</li>
+      </ol>
+
+      <h3>Weg 2 &ndash; selbst bauen mit ProxSpace</h3>
+      <ol class="schritt-liste">
+        <li><strong>ProxSpace</strong> herunterladen: <code>github.com/Gator96100/ProxSpace/releases</code>
+          und nach <code>C:\\ProxSpace</code> entpacken (Pfad <strong>ohne</strong> Leerzeichen und Umlaute).</li>
+        <li><code>runme64.bat</code> doppelklicken. Es oeffnet sich ein Terminalfenster, das im Ordner
+          <code>C:\\ProxSpace\\pm3</code> startet.</li>
+        <li>Quellcode holen:
           <pre><code>git clone https://github.com/RfidResearchGroup/proxmark3.git
 cd proxmark3</code></pre></li>
-        <li>Uebersetzen und installieren:
-          <pre><code>make clean &amp;&amp; make -j</code></pre></li>
-        <li>Proxmark ueber USB anschliessen. Windows vergibt einen COM-Port
-          (z. B. <code>COM5</code>) &ndash; siehe Geraete-Manager.</li>
-        <li>Testen:
-          <pre><code>pm3 -p COM5</code></pre>
-          Anschliessend im Client <code>hw status</code> eingeben.</li>
+        <li><strong>Nur bei Proxmark3 Easy / Nachbauten</strong> (nicht beim RDV4) die Geraeteart festlegen:
+          <pre><code>cp Makefile.platform.sample Makefile.platform</code></pre>
+          und in der Datei <code>Makefile.platform</code> die Zeile auf
+          <code>PLATFORM=PM3GENERIC</code> aendern.</li>
+        <li>Bauen (dauert einige Minuten):
+          <pre><code>make clean &amp;&amp; make all</code></pre></li>
+        <li>Firmware aufspielen (Proxmark eingesteckt):
+          <pre><code>./pm3-flash-all</code></pre></li>
+        <li>Kurz testen mit <code>./pm3</code> und darin <code>hw version</code>. Danach mit
+          <code>quit</code> beenden, damit der Anschluss fuer diese Oberflaeche frei wird.</li>
+        <li>Diese Oberflaeche findet den Client dann automatisch unter
+          <code>C:\\ProxSpace\\pm3\\proxmark3\\client\\proxmark3.exe</code>.</li>
       </ol>
-      <p class="hinweis-klein">Tipp: Diese GUI findet den Client auch dann, wenn <code>pm3.exe</code>
-      unter <code>C:\\ProxSpace\\pm3</code> liegt.</p>
+
+      <h3>Firmware aufspielen</h3>
+      <p>Zeigt <code>hw version</code> eine Warnung, dass Client und Firmware nicht zusammenpassen,
+      muss die Firmware aus demselben Paket aufs Geraet:</p>
+      <ul>
+        <li><strong>ProxSpace:</strong> im ProxSpace-Fenster im Ordner <code>proxmark3</code>:
+          <code>./pm3-flash-all</code></li>
+        <li><strong>Fertiges Paket:</strong> in der Eingabeaufforderung im Ordner mit
+          <code>proxmark3.exe</code> (COM-Port anpassen):
+          <pre><code>proxmark3.exe -p COM5 --flash --image fullimage.elf</code></pre>
+          <span class="hinweis-klein">Die Datei <code>fullimage.elf</code> liegt im Paket, oft im Unterordner
+          <code>firmware</code>. Liegt dort auch ein Skript wie <code>pm3-flash-all.bat</code>, kann
+          stattdessen dieses genutzt werden.</span></li>
+      </ul>
+      <p class="hinweis-klein">&#9888; Waehrend des Aufspielens den Proxmark <strong>nicht</strong>
+      abziehen. Den Bootloader (<code>bootrom</code>) nur erneuern, wenn die Anleitung des Pakets das
+      verlangt &ndash; ein Abbruch dabei kann das Geraet unbrauchbar machen.</p>
     </div>
 
     <div class="os-abschnitt" data-os="linux">

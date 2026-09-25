@@ -20,7 +20,13 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import katalog as katalog_modul
-from .client import Pm3Client
+from .client import (
+    ERLAUBTE_NAMEN,
+    Pm3Client,
+    lade_einstellungen,
+    pfad_ist_client,
+    speichere_einstellungen,
+)
 
 WEB = Path(__file__).resolve().parent / "web"
 
@@ -109,8 +115,7 @@ def _erzeuge_handler(app: _Anwendung) -> type[BaseHTTPRequestHandler]:
                 return
 
             if pfad == "/api/zustand":
-                z = app.client.zustand()
-                self._sende_json(z.__dict__)
+                self._sende_json(self._zustand_mit_details())
                 return
 
             if pfad == "/api/suche":
@@ -126,8 +131,47 @@ def _erzeuge_handler(app: _Anwendung) -> type[BaseHTTPRequestHandler]:
 
         # -- POST ------------------------------------------------------------
 
+        def _zustand_mit_details(self) -> dict:
+            daten = dict(app.client.zustand().__dict__)
+            daten["durchsucht"] = app.client.durchsucht
+            daten["einstellungen"] = lade_einstellungen()
+            return daten
+
+        def _anfrage_vertrauenswuerdig(self) -> bool:
+            """Schutz gegen fremde Webseiten (CSRF / DNS-Rebinding).
+
+            Eine beliebige Internetseite im selben Browser koennte sonst
+            Anfragen an 127.0.0.1 schicken und so Befehle am Proxmark ausloesen.
+            Zugelassen werden nur JSON-Anfragen (erzwingt beim Browser eine
+            Rueckfrage, die dieser Server nicht freigibt), deren Host lokal ist
+            und deren Herkunft - falls angegeben - diese Oberflaeche selbst ist.
+            """
+            if "application/json" not in (self.headers.get("Content-Type") or ""):
+                return False
+            host = (self.headers.get("Host") or "").rsplit(":", 1)[0].strip("[]").lower()
+            lokal = {"127.0.0.1", "localhost", "::1", self.server.server_address[0]}
+            if host not in lokal:
+                return False
+            herkunft = self.headers.get("Origin")
+            if herkunft and urlparse(herkunft).hostname not in lokal:
+                return False
+            return True
+
         def do_POST(self) -> None:  # noqa: N802
             zerlegt = urlparse(self.path)
+            if not self._anfrage_vertrauenswuerdig():
+                self._sende_json({"erfolg": False, "ausgabe": "Anfrage abgelehnt."}, status=403)
+                return
+
+            if zerlegt.path == "/api/neu_suchen":
+                app.client.neu_suchen()
+                self._sende_json(self._zustand_mit_details())
+                return
+
+            if zerlegt.path == "/api/einstellungen":
+                self._einstellungen_speichern(self._lies_json_rumpf())
+                return
+
             if zerlegt.path != "/api/ausfuehren":
                 self.send_error(404, "Nicht gefunden")
                 return
@@ -155,6 +199,44 @@ def _erzeuge_handler(app: _Anwendung) -> type[BaseHTTPRequestHandler]:
             ergebnis = app.client.fuehre_aus(befehl)
             self._sende_json(ergebnis.__dict__)
 
+        def _einstellungen_speichern(self, daten: dict) -> None:
+            einstellungen = lade_einstellungen()
+            client_pfad = str(daten.get("client_pfad", "")).strip().strip('"')
+            anschluss = str(daten.get("anschluss", "")).strip()
+
+            if client_pfad and not pfad_ist_client(client_pfad):
+                namen = ", ".join(sorted(ERLAUBTE_NAMEN))
+                self._sende_json(
+                    {
+                        "erfolg": False,
+                        "meldung": (
+                            f"Unter diesem Pfad liegt kein Proxmark3-Client ({namen}). "
+                            "Bitte den vollstaendigen Pfad zur Datei proxmark3.exe angeben, "
+                            "z. B. C:\\ProxSpace\\pm3\\proxmark3\\client\\proxmark3.exe"
+                        ),
+                    },
+                    status=400,
+                )
+                return
+            # Anschluss: nur COMx bzw. /dev/... zulassen.
+            if anschluss and not (
+                anschluss.upper().startswith("COM") and anschluss[3:].isdigit()
+                or anschluss.startswith("/dev/")
+            ):
+                self._sende_json(
+                    {"erfolg": False, "meldung": "Anschluss bitte als COM5 bzw. /dev/ttyACM0 angeben."},
+                    status=400,
+                )
+                return
+
+            einstellungen["client_pfad"] = client_pfad
+            einstellungen["anschluss"] = anschluss.upper() if anschluss.upper().startswith("COM") else anschluss
+            speichere_einstellungen(einstellungen)
+            app.client.neu_suchen()
+            antwort = self._zustand_mit_details()
+            antwort["erfolg"] = True
+            self._sende_json(antwort)
+
         @staticmethod
         def _befehl_erlaubt(befehl: str) -> bool:
             if not befehl:
@@ -176,11 +258,19 @@ def starte(
     browser_oeffnen: bool = True,
     zeitlimit: int = 60,
 ) -> None:
+    adresse = f"http://{host}:{port}/"
     app = _Anwendung(demo=demo, zeitlimit=zeitlimit)
     handler = _erzeuge_handler(app)
-    server = ThreadingHTTPServer((host, port), handler)
-
-    adresse = f"http://{host}:{port}/"
+    try:
+        server = ThreadingHTTPServer((host, port), handler)
+    except OSError:
+        # Meist laeuft die Oberflaeche schon (z. B. Startdatei doppelt geklickt).
+        print(f"Die Oberflaeche laeuft bereits (Port {port} ist belegt).")
+        print(f"Oeffne {adresse} im Browser ...")
+        print("Fuer eine zweite Instanz einen anderen Port waehlen: start.py --port 8138")
+        if browser_oeffnen:
+            webbrowser.open(adresse)
+        return
     stat = app.katalog.statistik()
     print("=" * 60)
     print("  Proxmark3-GUI (Deutsch)")
