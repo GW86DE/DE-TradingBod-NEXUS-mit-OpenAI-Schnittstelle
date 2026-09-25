@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import katalog as katalog_modul
+from .sitzung import MAX_BEFEHL
 from .client import (
     ERLAUBTE_NAMEN,
     Pm3Client,
@@ -168,6 +169,20 @@ def _erzeuge_handler(app: _Anwendung) -> type[BaseHTTPRequestHandler]:
                 self._sende_json(self._zustand_mit_details())
                 return
 
+            if zerlegt.path == "/api/verbinden":
+                ok, meldung = app.client.verbinden()
+                antwort = self._zustand_mit_details()
+                antwort.update({"erfolg": ok, "verbindungs_meldung": meldung})
+                self._sende_json(antwort)
+                return
+
+            if zerlegt.path == "/api/trennen":
+                app.client.trennen()
+                antwort = self._zustand_mit_details()
+                antwort.update({"erfolg": True, "verbindungs_meldung": "Getrennt."})
+                self._sende_json(antwort)
+                return
+
             if zerlegt.path == "/api/einstellungen":
                 self._einstellungen_speichern(self._lies_json_rumpf())
                 return
@@ -187,8 +202,9 @@ def _erzeuge_handler(app: _Anwendung) -> type[BaseHTTPRequestHandler]:
                     {
                         "erfolg": False,
                         "ausgabe": (
-                            "Dieser Befehl steht nicht im Proxmark3-Katalog und wird "
-                            "aus Sicherheitsgruenden nicht ausgefuehrt."
+                            "Dieser Befehl wird nicht ausgefuehrt: Er steht nicht im "
+                            "Proxmark3-Katalog, ist zu lang oder enthaelt ';' bzw. "
+                            "Zeilenumbrueche (bitte Befehle einzeln senden)."
                         ),
                         "befehl": befehl,
                     },
@@ -229,9 +245,13 @@ def _erzeuge_handler(app: _Anwendung) -> type[BaseHTTPRequestHandler]:
                 )
                 return
 
+            if "automatisch_verbinden" in daten:
+                einstellungen["automatisch_verbinden"] = bool(daten["automatisch_verbinden"])
             einstellungen["client_pfad"] = client_pfad
             einstellungen["anschluss"] = anschluss.upper() if anschluss.upper().startswith("COM") else anschluss
             speichere_einstellungen(einstellungen)
+            # Neue Angaben (z. B. anderer Anschluss) erst nach Neuverbindung wirksam.
+            app.client.trennen()
             app.client.neu_suchen()
             antwort = self._zustand_mit_details()
             antwort["erfolg"] = True
@@ -239,7 +259,10 @@ def _erzeuge_handler(app: _Anwendung) -> type[BaseHTTPRequestHandler]:
 
         @staticmethod
         def _befehl_erlaubt(befehl: str) -> bool:
-            if not befehl:
+            if not befehl or len(befehl) > MAX_BEFEHL:
+                return False
+            # ";" und Zeilenumbrueche wuerden weitere, ungepruefte Befehle anhaengen.
+            if any(z in befehl for z in (";", "\n", "\r")):
                 return False
             teile = befehl.split()
             # Von lang nach kurz pruefen, ob ein Praefix ein bekannter Befehl ist.
@@ -287,9 +310,23 @@ def starte(
     if browser_oeffnen:
         threading.Timer(0.7, lambda: webbrowser.open(adresse)).start()
 
+    # Beim Start automatisch mit dem Proxmark3 verbinden (abschaltbar in der
+    # Oberflaeche), damit man nichts weiter starten muss.
+    if (
+        not zustand.demo
+        and zustand.geraet_verbunden
+        and lade_einstellungen().get("automatisch_verbinden", True)
+    ):
+        def _auto_verbinden() -> None:
+            ok, meldung = app.client.verbinden()
+            print(f"  Automatisch verbinden: {meldung.splitlines()[0]}")
+
+        threading.Thread(target=_auto_verbinden, daemon=True).start()
+
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nBeendet.")
     finally:
+        app.client.trennen()
         server.server_close()

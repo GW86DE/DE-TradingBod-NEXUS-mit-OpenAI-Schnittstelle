@@ -199,6 +199,21 @@ sudo make install</code></pre></li>
       <li><strong>Lexikon</strong> &ndash; kurze Erklaerungen zu Fachbegriffen.</li>
     </ul>
 
+    <h3>Starten und verbinden</h3>
+    <ul>
+      <li><strong>Start:</strong> <code>Proxmark3-GUI-starten.bat</code> doppelklicken. Tipp: Rechtsklick darauf
+        &rarr; &bdquo;Senden an&ldquo; &rarr; &bdquo;Desktop (Verknuepfung erstellen)&ldquo; &ndash; dann reicht kuenftig ein
+        Doppelklick auf dem Desktop.</li>
+      <li><strong>Verbinden:</strong> Ist der Proxmark eingesteckt, verbindet sich die Oberflaeche beim Start
+        automatisch (abschaltbar unter Installation &rarr; Verbindung einrichten). Sonst oben rechts auf
+        <strong>Verbinden</strong> klicken &ndash; oder einfach einen Befehl ausfuehren, dann wird automatisch verbunden.</li>
+      <li>Die Verbindung bleibt offen, bis Sie <strong>Trennen</strong> klicken oder die Oberflaeche schliessen.
+        Dadurch laufen Befehle ohne Wartezeit, und Zwischenergebnisse (z. B. ein mit <code>lf read</code>
+        eingelesenes Signal) bleiben fuer die naechsten Befehle erhalten.</li>
+      <li>ProxSpace wird fuer den taeglichen Gebrauch nicht gebraucht &ndash; nur, um spaeter eine neuere
+        Proxmark3-Version zu bauen und aufzuspielen. Dafuer vorher hier <strong>Trennen</strong>.</li>
+    </ul>
+
     <h3>So gehen Sie am besten vor</h3>
     <ol class="schritt-liste">
       <li>Pruefen Sie oben rechts den Status. Steht dort <em>Demo-Modus</em>, richten Sie zuerst den Client ein (Reiter Installation).</li>

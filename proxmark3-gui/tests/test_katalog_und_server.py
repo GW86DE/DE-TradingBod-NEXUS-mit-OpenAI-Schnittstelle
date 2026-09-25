@@ -37,17 +37,43 @@ client_modul.ARBEITSORDNER = _TEMP / "arbeit"
 os.environ.pop("PM3_CLIENT", None)
 os.environ.pop("PM3_PORT", None)
 
-# Nachgebauter Client: gibt seine Argumente (mit Farbcodes und Umlaut) aus.
+# Nachgebauter Client. Verhaelt sich wie der echte im Pipe-Modus
+# (client/src/proxmark3.c, main_loop): liest Zeilen von stdin, trennt sie an ";",
+# gibt pro Befehl die Eingabezeile "[usb|script] pm3 --> <befehl>" aus,
+# antwortet auf "rem X" mit "[+] <datum> remark: X " und endet bei "quit".
 FAKE_CLIENT = _TEMP / "bin" / "proxmark3"
 FAKE_CLIENT.parent.mkdir(parents=True)
-FAKE_CLIENT.write_text(
-    "#!/usr/bin/env python3\n"
-    "import sys\n"
-    "if '--version' in sys.argv:\n"
-    "    print('Client: Iceman/master/v9.9.9 (Test)'); sys.exit(0)\n"
-    "print('\\x1b[32m[+]\\x1b[0m ARGS=' + '|'.join(sys.argv[1:]) + ' Gr\\u00f6\\u00dfe')\n",
-    encoding="utf-8",
-)
+FAKE_CLIENT.write_text(r"""#!/usr/bin/env python3
+import sys, time
+if '--version' in sys.argv:
+    print('Client: Iceman/master/v9.9.9 (Test)'); sys.exit(0)
+args = sys.argv[1:]
+geraet = 'offline' if '/dev/ttyOFFLINE' in args else 'usb'
+print('\x1b[33m[=]\x1b[0m Startbanner ' + '|'.join(args), flush=True)
+zaehler = 0
+for zeile in sys.stdin:
+    for befehl in zeile.rstrip('\n').split(';'):
+        befehl = befehl.strip()
+        if not befehl:
+            continue
+        print(f'[{geraet}|script] pm3 --> {befehl}', flush=True)
+        if befehl == 'quit':
+            sys.exit(0)
+        elif befehl.startswith('rem '):
+            print(f'[+] 2026-09-25T12:00:00 remark: {befehl[4:]} ', flush=True)
+        elif befehl == 'zaehler':
+            zaehler += 1
+            print(f'ZAEHLER={zaehler}', flush=True)
+        elif befehl == 'abziehen':
+            geraet = 'offline'
+            print('[!] Communicating with Proxmark3 device failed', flush=True)
+        elif befehl.startswith('schlafe'):
+            time.sleep(float(befehl.split()[1]))
+            print('AUFGEWACHT', flush=True)
+        else:
+            print('\x1b[32m[+]\x1b[0m ARGS=' + '|'.join(args) + ' CMD=' + befehl + ' Gr\u00f6\u00dfe', flush=True)
+print('[!] STDIN unexpected end, exit...', flush=True)
+""", encoding="utf-8")
 FAKE_CLIENT.chmod(FAKE_CLIENT.stat().st_mode | stat.S_IXUSR)
 from pm3gui.server import _Anwendung, _erzeuge_handler  # noqa: E402
 from werkzeuge.katalog_erzeugen import baue_katalog, zerlege  # noqa: E402
@@ -230,21 +256,60 @@ def test_server() -> None:
 # Echter Client-Aufruf (mit nachgebautem Client)
 # ---------------------------------------------------------------------------
 def test_client_echt() -> None:
-    print("Client-Aufruf mit nachgebautem proxmark3")
+    print("Dauerhafte Verbindung mit nachgebautem proxmark3")
     client_modul.speichere_einstellungen({"client_pfad": str(FAKE_CLIENT), "anschluss": "/dev/ttyTEST0"})
-    client = Pm3Client()
+    client = Pm3Client(zeitlimit=5)
     z = client.zustand()
     pruefe(z.client_gefunden and not z.demo, "Client aus Einstellungsdatei gefunden")
     pruefe(z.geraet_anschluss == "/dev/ttyTEST0", "gespeicherter Anschluss hat Vorrang")
     pruefe("v9.9.9" in z.client_version, "Version wird gelesen")
+    pruefe(not z.sitzung_aktiv, "vor dem ersten Befehl noch nicht verbunden")
 
     erg = client.fuehre_aus("hw status")
-    pruefe(erg.erfolg and not erg.demo, "Befehl wird wirklich ausgefuehrt")
-    pruefe("ARGS=-p|/dev/ttyTEST0|-c|hw status" in erg.ausgabe, "Aufruf lautet: proxmark3 -p <port> -c <befehl>")
+    pruefe(erg.erfolg and not erg.demo, "erster Befehl verbindet automatisch und laeuft")
+    pruefe("ARGS=-p|/dev/ttyTEST0|-f CMD=hw status" in erg.ausgabe,
+           "Aufruf: proxmark3 -p <port> -f, Befehl ueber die Verbindung")
+    pruefe("PM3GUIENDE" not in erg.ausgabe and "-->" not in erg.ausgabe,
+           "Endmarken und Eingabe-Echos werden ausgeblendet")
+    pruefe("Startbanner" not in erg.ausgabe, "Startausgabe gehoert nicht zum ersten Befehl")
     pruefe("\x1b[" not in erg.ausgabe, "Farbcodes werden entfernt")
     pruefe("Gr\u00f6\u00dfe" in erg.ausgabe, "Umlaute kommen korrekt an (UTF-8)")
-    pruefe(client_modul.ARBEITSORDNER.is_dir(), "Arbeitsordner fuer Dateien wird angelegt")
+    pruefe(client.zustand().sitzung_aktiv, "Verbindung bleibt offen")
 
+    eins = client.fuehre_aus("zaehler").ausgabe
+    zwei = client.fuehre_aus("zaehler").ausgabe
+    pruefe(eins == "ZAEHLER=1" and zwei == "ZAEHLER=2",
+           "derselbe Client-Prozess bearbeitet alle Befehle (Zustand bleibt erhalten)")
+
+    erg = client.fuehre_aus("hw status; hw version")
+    pruefe(not erg.erfolg and "';'" in erg.ausgabe, "';' im Befehl wird abgelehnt")
+
+    # Zeitlimit: Befehl laeuft laenger, danach geht es sauber weiter.
+    kurz = Pm3Client(zeitlimit=1)
+    erg = kurz.fuehre_aus("schlafe 2")
+    pruefe(not erg.erfolg and "Zeitlimit" in erg.ausgabe, "Zeitlimit wird gemeldet")
+    time.sleep(1.5)
+    erg = kurz.fuehre_aus("hw version")
+    pruefe(erg.erfolg and "CMD=hw version" in erg.ausgabe and "PM3GUIENDE" not in erg.ausgabe,
+           "nach Zeitlimit: naechster Befehl liefert seine eigene Antwort")
+    kurz.trennen()
+
+    # Geraet wird abgezogen -> Verbindung wird als getrennt gemeldet.
+    erg = client.fuehre_aus("abziehen")
+    pruefe("getrennt" in erg.ausgabe and not client.zustand().sitzung_aktiv,
+           "abgezogenes Geraet wird erkannt, Verbindung geschlossen")
+    erg = client.fuehre_aus("zaehler")
+    pruefe(erg.ausgabe == "ZAEHLER=1", "naechster Befehl verbindet neu")
+
+    client.trennen()
+    pruefe(not client.zustand().sitzung_aktiv, "Trennen beendet die Verbindung")
+
+    # Anschluss, an dem der Client nur 'offline' meldet
+    client_modul.speichere_einstellungen({"client_pfad": str(FAKE_CLIENT), "anschluss": "/dev/ttyOFFLINE"})
+    ok, meldung = Pm3Client().verbinden()
+    pruefe(not ok and "fehlgeschlagen" in meldung, "Verbinden scheitert sauber, wenn der Client offline bleibt")
+
+    pruefe(client_modul.ARBEITSORDNER.is_dir(), "Arbeitsordner fuer Dateien wird angelegt")
     pruefe(client_modul.pfad_ist_client(str(FAKE_CLIENT)), "Pfadpruefung akzeptiert proxmark3")
     pruefe(not client_modul.pfad_ist_client("/bin/sh"), "Pfadpruefung lehnt fremde Programme ab")
     client_modul.speichere_einstellungen({})
@@ -279,8 +344,14 @@ def test_server_einstellungen_und_schutz() -> None:
         pruefe(code == 200 and z.get("client_gefunden"), "gueltiger Client-Pfad wird gespeichert und genutzt")
         pruefe(z.get("einstellungen", {}).get("anschluss") == "COM7", "COM-Port wird vereinheitlicht")
 
+        code, z = _post(basis, "/api/verbinden", {})
+        pruefe(code == 200 and z.get("erfolg") and z.get("sitzung_aktiv"), "Knopf 'Verbinden' baut die Verbindung auf")
         code, erg = _post(basis, "/api/ausfuehren", {"befehl": "hw version"})
-        pruefe(code == 200 and "-c|hw version" in erg.get("ausgabe", ""), "Befehl laeuft ueber gespeicherten Client")
+        pruefe(code == 200 and "CMD=hw version" in erg.get("ausgabe", ""), "Befehl laeuft ueber die Verbindung")
+        code, _ = _post(basis, "/api/ausfuehren", {"befehl": "hw version;hw status"})
+        pruefe(code == 400, "Befehlskette mit ';' wird vom Server abgelehnt")
+        code, z = _post(basis, "/api/trennen", {})
+        pruefe(code == 200 and not z.get("sitzung_aktiv"), "Knopf 'Trennen' beendet die Verbindung")
 
         # Fremde Webseite (andere Herkunft) darf nichts ausloesen.
         code, _ = _post(basis, "/api/ausfuehren", {"befehl": "hw status"}, {"Origin": "https://boese.example"})
@@ -295,6 +366,7 @@ def test_server_einstellungen_und_schutz() -> None:
         code, _ = _post(basis, "/api/ausfuehren", {"befehl": "hw status"}, {"Origin": basis})
         pruefe(code == 200, "Anfrage der eigenen Oberflaeche ist erlaubt")
     finally:
+        app.client.trennen()
         server.shutdown()
         server.server_close()
         client_modul.speichere_einstellungen({})

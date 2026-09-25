@@ -57,6 +57,16 @@ einrichten**. Dort sieht man, was gefunden wurde, und kann den Pfad zu
 `proxmark3.exe` sowie den COM-Port auch von Hand eintragen. Die Angaben werden in
 `einstellungen.json` gespeichert.
 
+**Verbinden:** Die Oberfläche hält eine dauerhafte Verbindung zum Proxmark3.
+Ist das Gerät beim Start eingesteckt, verbindet sie sich automatisch (abschaltbar);
+sonst genügt ein Klick auf **Verbinden** oben rechts oder einfach der erste
+Befehl. Technisch bleibt dazu ein einziger Client-Prozess (`proxmark3 -p <port> -f`)
+geöffnet, dem die Befehle über seine Standardeingabe geschickt werden – eine
+eingebaute Fähigkeit des offiziellen Clients. Dadurch entfällt das Neuverbinden
+je Befehl, und Zwischenergebnisse (z. B. der Signalpuffer nach `lf read`) bleiben
+erhalten. **Trennen** oder das Schließen der Oberfläche beendet den Client und gibt
+den Anschluss frei.
+
 Automatisch gesucht wird unter Windows u. a. in
 `C:\ProxSpace\pm3\proxmark3\client\proxmark3.exe`, `C:\Proxmark3\…` sowie in
 den Ordnern „Downloads“, „Desktop“ und „Dokumente“. Der COM-Port des Proxmark
@@ -79,6 +89,7 @@ proxmark3-gui/
 │  ├─ __main__.py                Kommandozeilen-Schalter
 │  ├─ katalog.py                 lädt & übersetzt die Befehlsliste
 │  ├─ client.py                  ruft die echte pm3-Programmdatei auf (+ Demo)
+│  ├─ sitzung.py                 dauerhafte Verbindung zum Client (Verbinden/Trennen)
 │  ├─ server.py                  lokaler Webserver + JSON-Schnittstelle
 │  ├─ daten/
 │  │  ├─ befehle.json            automatisch erzeugter Befehlskatalog

@@ -21,9 +21,12 @@ import platform
 import re
 import shutil
 import subprocess
+import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from .sitzung import Sitzung
 
 IST_WINDOWS = platform.system() == "Windows"
 
@@ -66,6 +69,8 @@ class Zustand:
     anschluesse: list[str] = field(default_factory=list)
     demo: bool = True
     demo_erzwungen: bool = False
+    sitzung_aktiv: bool = False
+    sitzung_anschluss: str = ""
     betriebssystem: str = platform.system()
     arbeitsordner: str = str(ARBEITSORDNER)
     meldung: str = ""
@@ -275,11 +280,17 @@ class Pm3Client:
         self._client_pfad = ""
         self._durchsucht: list[str] = []
         self._version = ""
+        self._sitzung: Sitzung | None = None
+        self._sitzung_anschluss = ""
+        self._verbindungs_sperre = threading.Lock()
         if not demo_erzwingen:
             self.neu_suchen()
 
     def neu_suchen(self) -> None:
-        self._client_pfad, self._durchsucht = finde_client()
+        pfad, self._durchsucht = finde_client()
+        if pfad != self._client_pfad:
+            self.trennen()
+        self._client_pfad = pfad
         self._version = ""
 
     @property
@@ -368,8 +379,13 @@ class Pm3Client:
             )
 
         anschluesse = finde_anschluesse()
+        aktiv = self._sitzung_aktiv()
+        if aktiv and self._sitzung_anschluss not in anschluesse:
+            anschluesse.insert(0, self._sitzung_anschluss)
         verbunden = bool(anschluesse)
         return Zustand(
+            sitzung_aktiv=aktiv,
+            sitzung_anschluss=self._sitzung_anschluss if aktiv else "",
             client_gefunden=True,
             client_pfad=self._client_pfad,
             client_version=self.version(),
@@ -378,7 +394,9 @@ class Pm3Client:
             anschluesse=anschluesse,
             demo=False,
             meldung=(
-                f"Client gefunden. Geraet an {anschluesse[0]}."
+                f"Verbunden mit dem Proxmark3 an {self._sitzung_anschluss}."
+                if aktiv
+                else f"Proxmark3 an {anschluesse[0]} gefunden - noch nicht verbunden."
                 if verbunden
                 else "Client gefunden, aber kein Geraet angeschlossen. "
                 "Befehle mit dem Vermerk 'ohne Geraet' funktionieren trotzdem."
@@ -400,12 +418,69 @@ class Pm3Client:
             self._version = ""
         return self._version
 
+    # -- Dauerhafte Verbindung -----------------------------------------------
+
+    def _sitzung_aktiv(self) -> bool:
+        return self._sitzung is not None and self._sitzung.laeuft
+
+    def verbinden(self) -> tuple[bool, str]:
+        """Startet den Client einmal und haelt ihn fuer alle weiteren Befehle offen."""
+        with self._verbindungs_sperre:
+            if self._demo_erzwingen or not self._client_pfad:
+                return False, "Kein Proxmark3-Client eingerichtet (Demo-Modus)."
+            if self._sitzung_aktiv():
+                return True, f"Bereits verbunden an {self._sitzung_anschluss}."
+            self._trennen_ohne_sperre()
+
+            anschluesse = finde_anschluesse()
+            if not anschluesse:
+                return False, (
+                    "Kein Proxmark3 gefunden. Bitte per USB einstecken (Datenkabel) und "
+                    "pruefen, dass kein anderes Programm den Anschluss benutzt."
+                )
+            anschluss = anschluesse[0]
+            argumente = [self._client_pfad]
+            # Das Startskript "pm3" sucht den Anschluss selbst.
+            if Path(self._client_pfad).name != "pm3":
+                argumente += ["-p", anschluss]
+            argumente += ["-f"]  # Ausgabe sofort weiterreichen
+
+            ARBEITSORDNER.mkdir(parents=True, exist_ok=True)
+            zusatz = {}
+            if IST_WINDOWS:
+                zusatz["creationflags"] = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            sitzung = Sitzung(argumente, self._umgebung(), str(ARBEITSORDNER), zusatz)
+            ok, ausgabe = sitzung.starte()
+            if ok and sitzung.geraet_offline:
+                sitzung.beende()
+                ok = False
+            if not ok:
+                return False, (
+                    f"Verbindung zu {anschluss} fehlgeschlagen. Ist der Anschluss noch von "
+                    "einem anderen Programm belegt (z. B. ./pm3 in ProxSpace)? Dann dort "
+                    "'quit' eingeben.\n\n" + ausgabe
+                ).strip()
+            self._sitzung = sitzung
+            self._sitzung_anschluss = anschluss
+            return True, f"Verbunden an {anschluss}."
+
+    def trennen(self) -> None:
+        with self._verbindungs_sperre:
+            self._trennen_ohne_sperre()
+
+    def _trennen_ohne_sperre(self) -> None:
+        if self._sitzung is not None:
+            self._sitzung.beende()
+        self._sitzung = None
+        self._sitzung_anschluss = ""
+
     # -- Ausfuehrung ---------------------------------------------------------
 
     def fuehre_aus(self, befehl: str) -> Ergebnis:
-        """Fuehrt einen einzelnen Client-Befehl aus.
+        """Fuehrt einen Client-Befehl ueber die dauerhafte Verbindung aus.
 
-        Im Demo-Modus wird nichts an ein Geraet gesendet; stattdessen wird ein
+        Besteht noch keine Verbindung, wird sie automatisch aufgebaut. Im
+        Demo-Modus wird nichts an ein Geraet gesendet; stattdessen wird ein
         erklaerender Hinweis zurueckgegeben.
         """
         befehl = befehl.strip()
@@ -413,9 +488,16 @@ class Pm3Client:
 
         if not befehl:
             return Ergebnis(befehl, "Kein Befehl angegeben.", False, 0.0)
+        if any(z in befehl for z in (";", "\n", "\r")):
+            return Ergebnis(
+                befehl,
+                "Bitte Befehle einzeln senden: ';' und Zeilenumbrueche sind nicht erlaubt.",
+                False,
+                0.0,
+            )
 
-        zustand = self.zustand()
-        if zustand.demo:
+        if self._demo_erzwingen or not self._client_pfad:
+            zustand = self.zustand()
             return Ergebnis(
                 befehl=befehl,
                 ausgabe=self._demo_text(befehl, zustand),
@@ -424,48 +506,32 @@ class Pm3Client:
                 demo=True,
             )
 
-        argumente = [self._client_pfad]
-        # Das Startskript "pm3" sucht den Anschluss selbst; der eigentliche
-        # Client "proxmark3" bekommt ihn ausdruecklich mit.
-        if zustand.geraet_anschluss and Path(self._client_pfad).name != "pm3":
-            argumente += ["-p", zustand.geraet_anschluss]
-        argumente += ["-c", befehl]
+        if not self._sitzung_aktiv():
+            ok, meldung = self.verbinden()
+            if not ok:
+                return Ergebnis(befehl, meldung, False, time.monotonic() - beginn)
 
-        try:
-            roh = self._starte(argumente, self._zeitlimit)
-            ausgabe = roh.stdout or ""
-            if roh.stderr:
-                ausgabe += ("\n" if ausgabe else "") + roh.stderr
-            ausgabe = _ANSI.sub("", ausgabe).strip()
-            return Ergebnis(
-                befehl=befehl,
-                ausgabe=ausgabe or "(keine Ausgabe)",
-                erfolg=roh.returncode == 0,
-                dauer=time.monotonic() - beginn,
+        sitzung = self._sitzung
+        assert sitzung is not None
+        antwort = sitzung.befehl(befehl, self._zeitlimit)
+        ausgabe = antwort.ausgabe or "(keine Ausgabe)"
+
+        if not antwort.fertig and sitzung.laeuft:
+            ausgabe += (
+                f"\n\n[Zeitlimit von {self._zeitlimit} s erreicht - der Befehl laeuft auf dem "
+                "Geraet eventuell weiter (z. B. Mitschneiden oder Simulieren, oft mit dem Knopf "
+                "am Proxmark zu beenden). 'Trennen' beendet ihn sicher.]"
             )
-        except subprocess.TimeoutExpired:
-            return Ergebnis(
-                befehl=befehl,
-                ausgabe=(
-                    f"Zeitlimit ({self._zeitlimit} s) ueberschritten und abgebrochen. "
-                    "Lange Vorgaenge lassen sich mit einem hoeheren Zeitlimit starten "
-                    "(start.py --zeitlimit 600)."
-                ),
-                erfolg=False,
-                dauer=time.monotonic() - beginn,
-            )
-        except OSError as fehler:
-            return Ergebnis(
-                befehl=befehl,
-                ausgabe=(
-                    f"Der Client konnte nicht gestartet werden ({fehler}).\n"
-                    f"Pfad: {self._client_pfad}\n"
-                    "Unter Windows fehlen dann meist Programmbibliotheken (DLLs): "
-                    "proxmark3.exe muss im Ordner seines Pakets bleiben."
-                ),
-                erfolg=False,
-                dauer=time.monotonic() - beginn,
-            )
+        elif not sitzung.laeuft or sitzung.geraet_offline:
+            ausgabe += "\n\n[Die Verbindung zum Proxmark3 wurde getrennt. Beim naechsten Befehl wird neu verbunden.]"
+            self.trennen()
+
+        return Ergebnis(
+            befehl=befehl,
+            ausgabe=ausgabe,
+            erfolg=antwort.fertig,
+            dauer=time.monotonic() - beginn,
+        )
 
     @staticmethod
     def _demo_text(befehl: str, zustand: Zustand) -> str:

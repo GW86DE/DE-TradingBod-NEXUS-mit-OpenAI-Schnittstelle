@@ -76,17 +76,44 @@ function zustandAnzeigen(z) {
   const anzeige = $("#status-anzeige");
   const text = $("#status-text");
   anzeige.className = "status";
+  const knopf = $("#knopf-verbinden");
+  if (!knopf.dataset.beschaeftigt) {
+    knopf.hidden = !!z.demo;
+    knopf.textContent = z.sitzung_aktiv ? "Trennen" : "Verbinden";
+    knopf.classList.toggle("knopf--haupt", !z.sitzung_aktiv);
+  }
   if (z.demo) {
     anzeige.classList.add("status--demo");
     text.textContent = "Demo-Modus";
-  } else if (z.geraet_verbunden) {
+  } else if (z.sitzung_aktiv) {
     anzeige.classList.add("status--verbunden");
-    text.textContent = `Geraet verbunden (${z.geraet_anschluss})`;
+    text.textContent = `Verbunden (${z.sitzung_anschluss})`;
+  } else if (z.geraet_verbunden) {
+    anzeige.classList.add("status--offline");
+    text.textContent = `Proxmark an ${z.geraet_anschluss} – nicht verbunden`;
   } else {
     anzeige.classList.add("status--offline");
-    text.textContent = "Client bereit (kein Geraet)";
+    text.textContent = "Kein Proxmark eingesteckt";
   }
   anzeige.title = (z.meldung || "") + " – Klick oeffnet die Einrichtung.";
+}
+
+async function verbindenUmschalten() {
+  const knopf = $("#knopf-verbinden");
+  const trennen = !!Zustand.geraet?.sitzung_aktiv;
+  knopf.dataset.beschaeftigt = "1";
+  knopf.disabled = true;
+  knopf.textContent = trennen ? "Trenne …" : "Verbinde …";
+  const z = await postJson(trennen ? "/api/trennen" : "/api/verbinden", {});
+  delete knopf.dataset.beschaeftigt;
+  knopf.disabled = false;
+  if (z.betriebssystem) zustandAnzeigen(z);
+  if (z.erfolg === false) {
+    reiterZeigen("konsole");
+    konsoleAnhaengen(z.verbindungs_meldung || z.meldung || "Verbinden fehlgeschlagen.", "konsole-zeile-fehler");
+  } else if (!trennen) {
+    konsoleAnhaengen(`✔ ${z.verbindungs_meldung}`, "konsole-zeile-befehl");
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +128,8 @@ function reiterEinrichten() {
   // Direktaufruf eines Reiters ueber die Adresse, z. B. .../#installation
   const ziel = location.hash.slice(1);
   if (ziel && $(`#reiter-${ziel}`)) reiterZeigen(ziel);
+
+  $("#knopf-verbinden").addEventListener("click", verbindenUmschalten);
 
   const status = $("#status-anzeige");
   status.addEventListener("click", () => reiterZeigen("installation"));
@@ -531,6 +560,8 @@ function verbindungBoxRendern() {
       `<label for="feld-anschluss">Anschluss (COM-Port) &ndash; leer lassen fuer automatische Erkennung</label>` +
       `<input id="feld-anschluss" type="text" placeholder="z. B. COM5" />` +
     `</div>` +
+    `<label class="schalter auto-schalter"><input id="feld-auto" type="checkbox" checked />` +
+      `<span>Beim Start der Oberflaeche automatisch mit dem Proxmark verbinden</span></label>` +
     `<div class="dialog-knoepfe">` +
       `<button class="knopf knopf--haupt" id="knopf-speichern">Speichern &amp; verbinden</button>` +
       `<button class="knopf" id="knopf-suchen">Automatisch suchen</button>` +
@@ -554,6 +585,7 @@ async function verbindungSpeichern() {
   const daten = {
     client_pfad: $("#feld-client").value.trim(),
     anschluss: $("#feld-anschluss").value.trim(),
+    automatisch_verbinden: $("#feld-auto").checked,
   };
   verbindungMeldung("Speichere &hellip;");
   const z = await postJson("/api/einstellungen", daten);
@@ -586,11 +618,12 @@ function verbindungInfoRendern() {
   if (feldClient && !feldClient.dataset.gefuellt) {
     feldClient.value = z.einstellungen?.client_pfad || "";
     feldAnschluss.value = z.einstellungen?.anschluss || "";
+    $("#feld-auto").checked = z.einstellungen?.automatisch_verbinden !== false;
     feldClient.dataset.gefuellt = "1";
   }
 
   const zeile = (ok, text) =>
-    `<div class="info-zeile"><span class="info-symbol ${ok ? "ok" : "fehlt"}">${ok ? "\u2714" : "\u2716"}</span>${text}</div>`;
+    `<div class="info-zeile"><span class="info-symbol ${ok ? "ok" : "fehlt"}">${ok ? "\u2714" : "\u2716"}</span><div class="info-text">${text}</div></div>`;
 
   let html = "";
   if (z.demo_erzwungen) {
@@ -601,6 +634,9 @@ function verbindungInfoRendern() {
           (z.client_version ? `<br><span class="hinweis-klein">${escape(z.client_version)}</span>` : ""))
       : zeile(false, "Kein Proxmark3-Client gefunden. Bitte installieren (Anleitung unten) oder Pfad eintragen.");
     if (z.client_gefunden) {
+      if (z.sitzung_aktiv) {
+        html += zeile(true, `<strong>Verbunden</strong> mit dem Proxmark an <code>${escape(z.sitzung_anschluss)}</code> &ndash; alle Befehle laufen ueber diese Verbindung.`);
+      }
       html += z.geraet_verbunden
         ? zeile(true, `Geraet erkannt an <code>${escape(z.geraet_anschluss)}</code>` +
             (z.anschluesse.length > 1 ? ` <span class="hinweis-klein">(weitere: ${z.anschluesse.slice(1).map(escape).join(", ")})</span>` : ""))

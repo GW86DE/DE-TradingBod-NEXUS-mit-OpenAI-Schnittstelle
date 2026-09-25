@@ -241,6 +241,9 @@ main { padding: 20px; max-width: 1240px; margin: 0 auto; }
 .hinweis-klein { color: var(--text-schwach); font-size: 13px; }
 .text-fehler { color: var(--rot); }
 .status { cursor: pointer; }
+.kopf-rechts { display: flex; align-items: center; gap: 10px; }
+#knopf-verbinden[hidden] { display: none; }
+#knopf-verbinden:disabled { opacity: .6; cursor: wait; }
 .status:hover { border-color: var(--akzent); }
 
 /* Verbindung einrichten */
@@ -250,7 +253,9 @@ main { padding: 20px; max-width: 1240px; margin: 0 auto; }
 }
 .verbindung-box h2 { margin: 0 0 12px; font-size: 20px; }
 .verbindung-info { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-.info-zeile { display: flex; gap: 10px; align-items: flex-start; word-break: break-all; }
+.info-zeile { display: flex; gap: 10px; align-items: flex-start; }
+.info-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.auto-schalter { margin: 6px 0 14px; color: var(--text); }
 .info-symbol { font-weight: 700; width: 18px; flex: none; }
 .info-symbol.ok { color: var(--gruen); }
 .info-symbol.fehlt { color: var(--rot); }
