@@ -49,9 +49,20 @@ const TEXTE = {
       <h3>Weg 2 &ndash; selbst bauen mit ProxSpace</h3>
       <ol class="schritt-liste">
         <li><strong>ProxSpace</strong> herunterladen: <code>github.com/Gator96100/ProxSpace/releases</code>
-          und nach <code>C:\\ProxSpace</code> entpacken (Pfad <strong>ohne</strong> Leerzeichen und Umlaute).</li>
-        <li><code>runme64.bat</code> doppelklicken. Es oeffnet sich ein Terminalfenster, das im Ordner
-          <code>C:\\ProxSpace\\pm3</code> startet.</li>
+          (die ZIP-Datei unter &bdquo;Assets&ldquo; der neuesten Version) und nach <code>C:\\ProxSpace</code>
+          entpacken (Pfad <strong>ohne</strong> Leerzeichen und Umlaute). Im Ordner muss danach direkt
+          <code>runme64.bat</code> liegen.
+          <br><span class="hinweis-klein">Achtung: <strong>nicht</strong> MSYS2 von msys2.org
+          installieren &ndash; ProxSpace bringt sein eigenes, fertig vorbereitetes MSYS2 mit.</span></li>
+        <li><strong>Immer</strong> ueber <code>C:\\ProxSpace\\runme64.bat</code> starten (Doppelklick),
+          nie ueber MSYS2-Verknuepfungen im Startmenue oder <code>mingw64.exe</code>.
+          Beim allerersten Start werden Pakete aktualisiert; das Fenster kann sich dabei von selbst
+          schliessen. Dann <code>runme64.bat</code> einfach noch einmal starten &ndash; jetzt werden alle
+          Werkzeuge installiert (kann 10&ndash;30 Minuten dauern).</li>
+        <li>Fertig eingerichtet ist ProxSpace, wenn die Eingabezeile <code>pm3 ~$</code> lautet.
+          Steht dort stattdessen <code>name@rechner MINGW64 ~</code>, ist ProxSpace nicht aktiv
+          (dann fehlt z. B. <code>git</code>: &bdquo;command not found&ldquo;). Kurztest:
+          <pre><code>git --version</code></pre></li>
         <li>Quellcode holen:
           <pre><code>git clone https://github.com/RfidResearchGroup/proxmark3.git
 cd proxmark3</code></pre></li>
