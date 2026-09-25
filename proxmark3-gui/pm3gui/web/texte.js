@@ -38,7 +38,8 @@ const TEXTE = {
           das Windows-Paket der <strong>Iceman</strong>-Version herunterladen &ndash; passend zum Geraet:
           <em>RDV4</em> oder <em>generic</em> (fuer Proxmark3 Easy und Nachbauten).</li>
         <li>Die Datei entpacken, am besten nach <code>C:\\Proxmark3</code>.
-          Darin liegt <code>proxmark3.exe</code> &ndash; diese Oberflaeche sucht dort und in
+          Darin liegen u. a. <code>pm3.bat</code>, <code>pm3-flash-all.bat</code> und der Ordner
+          <code>client</code> mit <code>proxmark3.exe</code> &ndash; diese Oberflaeche sucht dort und in
           &bdquo;Downloads&ldquo;/&bdquo;Desktop&ldquo; automatisch danach.</li>
         <li>Oben auf <strong>&bdquo;Automatisch suchen&ldquo;</strong> klicken. Wird nichts gefunden,
           den Pfad zu <code>proxmark3.exe</code> ins Feld eintragen und speichern.</li>
@@ -90,12 +91,12 @@ arm-none-eabi-gcc --version</code></pre>
         <li>Quellcode holen:
           <pre><code>git clone https://github.com/RfidResearchGroup/proxmark3.git
 cd proxmark3</code></pre></li>
-        <li><strong>Nur bei Proxmark3 Easy / Nachbauten</strong> (nicht beim RDV4) die Geraeteart festlegen:
-          <pre><code>cp Makefile.platform.sample Makefile.platform</code></pre>
-          und in der Datei <code>Makefile.platform</code> die Zeile auf
-          <code>PLATFORM=PM3GENERIC</code> aendern.</li>
-        <li>Bauen (dauert einige Minuten):
-          <pre><code>make clean &amp;&amp; make all</code></pre></li>
+        <li>Firmware-Werkzeuge auffindbar machen (nach jedem Neustart von ProxSpace, siehe Kasten oben):
+          <pre><code>export PATH="$PATH:/ucrt64/bin"</code></pre></li>
+        <li>Bauen (dauert 5&ndash;20 Minuten) &ndash; je nach Geraet <strong>eine</strong> der beiden Zeilen:
+          <pre><code>make clean &amp;&amp; make -j4                          # Proxmark3 RDV4
+make clean &amp;&amp; make -j4 PLATFORM=PM3GENERIC      # Proxmark3 Easy / Nachbauten</code></pre>
+          Erfolgreich ist es, wenn am Ende keine Zeile mit <code>Error</code> steht.</li>
         <li>Firmware aufspielen (Proxmark eingesteckt):
           <pre><code>./pm3-flash-all</code></pre></li>
         <li>Kurz testen mit <code>./pm3</code> und darin <code>hw version</code>. Danach mit
@@ -110,12 +111,11 @@ cd proxmark3</code></pre></li>
       <ul>
         <li><strong>ProxSpace:</strong> im ProxSpace-Fenster im Ordner <code>proxmark3</code>:
           <code>./pm3-flash-all</code></li>
-        <li><strong>Fertiges Paket:</strong> in der Eingabeaufforderung im Ordner mit
-          <code>proxmark3.exe</code> (COM-Port anpassen):
-          <pre><code>proxmark3.exe -p COM5 --flash --image fullimage.elf</code></pre>
-          <span class="hinweis-klein">Die Datei <code>fullimage.elf</code> liegt im Paket, oft im Unterordner
-          <code>firmware</code>. Liegt dort auch ein Skript wie <code>pm3-flash-all.bat</code>, kann
-          stattdessen dieses genutzt werden.</span></li>
+        <li><strong>Fertiges Paket:</strong> im entpackten Ordner <code>pm3-flash-all.bat</code>
+          doppelklicken. (Die Firmware-Dateien <code>fullimage.elf</code> und <code>bootrom.elf</code>
+          liegen im Unterordner <code>client</code>.)</li>
+        <li>Klappt das Aufspielen nicht: Proxmark abziehen, den <strong>Knopf gedrueckt halten</strong>,
+          wieder einstecken und den Knopf waehrend des gesamten Vorgangs gedrueckt lassen.</li>
       </ul>
       <p class="hinweis-klein">&#9888; Waehrend des Aufspielens den Proxmark <strong>nicht</strong>
       abziehen. Den Bootloader (<code>bootrom</code>) nur erneuern, wenn die Anleitung des Pakets das

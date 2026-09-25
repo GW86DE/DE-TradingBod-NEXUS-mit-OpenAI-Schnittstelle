@@ -379,8 +379,22 @@ def test_windows() -> None:
     try:
         c = Pm3Client(demo_erzwingen=True)
         c._client_pfad = "C:/ProxSpace/pm3/proxmark3/client/proxmark3.exe"
-        pfad = c._umgebung()["PATH"]
+        umg = c._umgebung()
+        pfad = umg["PATH"]
         pruefe("ProxSpace/msys2/mingw64/bin" in pfad.replace("\\", "/"), "ProxSpace-DLL-Ordner kommt in den PATH")
+        pruefe(umg.get("PYTHONHOME", "").replace("\\", "/").endswith("ProxSpace/msys2/mingw64"),
+               "ProxSpace: PYTHONHOME wie in der ProxSpace-Konsole")
+        pruefe("qt6/plugins/platforms" in umg.get("QT_QPA_PLATFORM_PLUGIN_PATH", "").replace("\\", "/"),
+               "ProxSpace: Qt-Plugin-Pfad gesetzt")
+
+        # Fertiges Paket: client\proxmark3.exe mit client\libs (wie dessen setup.bat)
+        paket = _TEMP / "paket" / "client"
+        (paket / "libs" / "shell").mkdir(parents=True)
+        c._client_pfad = str(paket / "proxmark3.exe")
+        umg = c._umgebung()
+        pruefe(str(paket / "libs") in umg["PATH"].split(os.pathsep), "Paket: libs-Ordner kommt in den PATH")
+        pruefe(umg.get("QT_QPA_PLATFORM_PLUGIN_PATH", "").rstrip("/\\") == str(paket / "libs"),
+               "Paket: Qt-Plugin-Pfad zeigt auf libs")
         kandidaten = client_modul._windows_kandidaten()
         erwartet = Path.home() / "ProxSpace" / "pm3" / "proxmark3" / "client" / "proxmark3.exe"
         pruefe(erwartet in kandidaten, "ProxSpace-Standardpfad (pm3/proxmark3/client) wird durchsucht")

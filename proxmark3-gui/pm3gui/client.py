@@ -180,10 +180,13 @@ def finde_client() -> tuple[str, list[str]]:
         if kandidat.is_file():
             return str(kandidat), durchsucht
 
-    # 4. Begrenzte Suche in Ordnern, in die man Downloads typischerweise entpackt.
+    # 4. Begrenzte Suche in Ordnern, in die man Downloads typischerweise entpackt
+    #    (fertige Pakete landen dort oft in einem Unterordner mit Datum im Namen).
     if IST_WINDOWS:
         heim = Path.home()
-        for ordner in (heim / "Downloads", heim / "Desktop", heim / "Documents"):
+        ordnerliste = [Path(f"{b}:/Proxmark3") for b in "CDE"]
+        ordnerliste += [Path("C:/ProxSpace/builds"), heim / "Downloads", heim / "Desktop", heim / "Documents"]
+        for ordner in ordnerliste:
             durchsucht.append(f"{ordner} (Unterordner)")
             gefunden = _begrenzte_suche(ordner, "proxmark3.exe")
             if gefunden:
@@ -286,16 +289,41 @@ class Pm3Client:
     # -- Umgebung fuer den Kindprozess ---------------------------------------
 
     def _umgebung(self) -> dict[str, str]:
+        """Umgebungsvariablen fuer den Client-Prozess.
+
+        Unter Windows bildet dies nach, was die offiziellen Startskripte tun:
+        - fertige Pakete (ProxSpace-"autobuild", proxmarkbuilds.org) legen DLLs
+          und das Qt-Plugin in ``client\\libs`` ab und setzen dazu PATH und
+          QT_PLUGIN_PATH (siehe deren ``client\\setup.bat``);
+        - in ProxSpace gebaute Clients brauchen DLLs, Qt-Plugins und Python
+          aus ``ProxSpace\\msys2\\mingw64`` (die ProxSpace-Konsole setzt dafuer
+          u. a. PYTHONHOME=/mingw64).
+        """
         umgebung = dict(os.environ)
-        if IST_WINDOWS and self._client_pfad:
-            zusatz = [str(Path(self._client_pfad).parent)]
-            # Mit ProxSpace gebaute Clients brauchen die DLLs aus dessen MSYS2.
-            teile = Path(self._client_pfad).parts
-            for i, teil in enumerate(teile):
-                if teil.lower() == "proxspace":
-                    zusatz.append(str(Path(*teile[: i + 1]) / "msys2" / "mingw64" / "bin"))
-                    break
-            umgebung["PATH"] = os.pathsep.join(zusatz + [umgebung.get("PATH", "")])
+        if not (IST_WINDOWS and self._client_pfad):
+            return umgebung
+
+        client_ordner = Path(self._client_pfad).parent
+        zusatz = [str(client_ordner)]
+
+        libs = client_ordner / "libs"
+        if libs.is_dir():
+            zusatz += [str(libs), str(libs / "shell")]
+            umgebung["QT_PLUGIN_PATH"] = str(libs) + os.sep
+            umgebung["QT_QPA_PLATFORM_PLUGIN_PATH"] = str(libs) + os.sep
+
+        teile = Path(self._client_pfad).parts
+        for i, teil in enumerate(teile):
+            if teil.lower() == "proxspace":
+                mingw = Path(*teile[: i + 1]) / "msys2" / "mingw64"
+                zusatz.append(str(mingw / "bin"))
+                umgebung.setdefault("PYTHONHOME", str(mingw))
+                plugins = mingw / "share" / "qt6" / "plugins"
+                umgebung.setdefault("QT_PLUGIN_PATH", str(plugins))
+                umgebung.setdefault("QT_QPA_PLATFORM_PLUGIN_PATH", str(plugins / "platforms"))
+                break
+
+        umgebung["PATH"] = os.pathsep.join(zusatz + [umgebung.get("PATH", "")])
         return umgebung
 
     def _starte(self, argumente: list[str], zeitlimit: int) -> subprocess.CompletedProcess:
