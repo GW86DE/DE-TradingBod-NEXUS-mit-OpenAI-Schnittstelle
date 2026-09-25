@@ -64,6 +64,13 @@ const TEXTE = {
         und macht sie vor jedem <code>make</code> auffindbar:
         <pre><code>export PATH="$PATH:/ucrt64/bin"
 arm-none-eabi-gcc --version</code></pre>
+        Zusaetzlich ist der aktuelle MSYS2-Linker (binutils 2.47) fehlerhaft: Beim Bauen erscheint
+        <code>linker script file '&hellip;' appears multiple times</code>. Wie im offiziellen Windows-Bauskript
+        des Proxmark3-Projekts (<code>.github/workflows/windows.yml</code>) die Vorversion einspielen:
+        <pre><code>pacman -U --noconfirm https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-arm-none-eabi-binutils-2.46.1-1-any.pkg.tar.zst</code></pre>
+        <span class="hinweis-klein">Bricht der Download ab (Zeitueberschreitung), die Adresse im Browser oeffnen,
+        die Datei speichern und dann z. B. <code>pacman -U --noconfirm /c/Users/NAME/Downloads/mingw-w64-ucrt-x86_64-arm-none-eabi-binutils-2.46.1-1-any.pkg.tar.zst</code>
+        eingeben. Danach ProxSpace nicht mit <code>pacman -Syu</code> aktualisieren, sonst kommt die fehlerhafte Version zurueck.</span>
       </div>
       <ol class="schritt-liste">
         <li><strong>ProxSpace</strong> herunterladen: <code>github.com/Gator96100/ProxSpace/releases</code>
