@@ -49,8 +49,10 @@ async function katalogLaden() {
     const antwort = await fetch("/api/katalog");
     Zustand.katalog = await antwort.json();
     kategorienRendern();
-    const ersteKat = Zustand.katalog.baum[0];
-    if (ersteKat) kategorieWaehlen(ersteKat.id);
+    // Kategorie per Adresse waehlbar (z. B. .../#kat-hf), sonst die erste.
+  const ausHash = (location.hash.match(/^#kat-(.+)$/) || [])[1];
+    const startKat = (Zustand.katalog.baum.find((x) => x.id === ausHash) || Zustand.katalog.baum[0]);
+    if (startKat) kategorieWaehlen(startKat.id);
     const s = Zustand.katalog.statistik;
     $("#fuss-info").textContent =
       `${s.befehle} Befehle · ${s.kategorien} Kategorien · alle auf Deutsch ` +

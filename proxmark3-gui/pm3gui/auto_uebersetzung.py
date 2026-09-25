@@ -204,6 +204,12 @@ _PHRASEN_ROH: list[tuple[str, str]] = [
     ("hint display", "Hinweis-Anzeige"),
     ("wave form", "Signalform"),
     ("waveform", "Signalform"),
+    ("protocol data", "Protokolldaten"),
+    ("trace buffer", "Mitschnittpuffer"),
+    ("in trace buffer", "im Mitschnittpuffer"),
+    ("generic", "allgemein"),
+    ("plot the graphbuffer", "Signalpuffer grafisch darstellen"),
+    ("plot the demodbuffer", "Demodulationspuffer grafisch darstellen"),
 ]
 
 # ---------------------------------------------------------------------------
