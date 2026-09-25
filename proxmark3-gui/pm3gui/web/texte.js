@@ -47,6 +47,20 @@ const TEXTE = {
       </ol>
 
       <h3>Weg 2 &ndash; selbst bauen mit ProxSpace</h3>
+      <div class="dialog-warnung">
+        <strong>Bekanntes Problem (Stand 2026):</strong> MSYS2 liefert die Firmware-Werkzeuge
+        <code>arm-none-eabi-gcc/binutils/newlib</code> nur noch fuer die Umgebung &bdquo;ucrt64&ldquo;,
+        ProxSpace verlangt aber noch die &bdquo;mingw64&ldquo;-Pakete. Bei der Einrichtung erscheint dann
+        <code>error: target not found: mingw-w64-x86_64-arm-none-eabi-gcc</code>, und die Firmware laesst sich
+        nicht bauen. Solange ProxSpace das nicht behoben hat, ist <strong>Weg 1</strong> der einfachere Weg.
+        Wer trotzdem selbst bauen moechte, installiert die Werkzeuge in der fertig eingerichteten
+        ProxSpace-Konsole (<code>pm3 ~$</code>) von Hand:
+        <pre><code>pacman -S --noconfirm mingw-w64-ucrt-x86_64-arm-none-eabi-gcc \\
+  mingw-w64-ucrt-x86_64-arm-none-eabi-binutils mingw-w64-ucrt-x86_64-arm-none-eabi-newlib</code></pre>
+        und macht sie vor jedem <code>make</code> auffindbar:
+        <pre><code>export PATH="$PATH:/ucrt64/bin"
+arm-none-eabi-gcc --version</code></pre>
+      </div>
       <ol class="schritt-liste">
         <li><strong>ProxSpace</strong> herunterladen: <code>github.com/Gator96100/ProxSpace/releases</code>
           (die ZIP-Datei unter &bdquo;Assets&ldquo; der neuesten Version) und nach <code>C:\\ProxSpace</code>
@@ -67,7 +81,12 @@ const TEXTE = {
         <li>Fertig eingerichtet ist ProxSpace, wenn die Eingabezeile <code>pm3 ~$</code> lautet.
           Steht dort stattdessen <code>name@rechner MINGW64 ~</code>, ist ProxSpace nicht aktiv
           (dann fehlt z. B. <code>git</code>: &bdquo;command not found&ldquo;). Kurztest:
-          <pre><code>git --version</code></pre></li>
+          <pre><code>git --version</code></pre>
+          <span class="hinweis-klein">Bleibt die Einrichtung minutenlang bei &bdquo;Installing: &hellip;&ldquo; stehen:
+          nicht ins Fenster klicken (Windows haelt die Ausgabe dann an &ndash; mit Esc fortsetzen). Haeufig
+          bremst auch der Virenscanner die tausenden kleinen Dateien aus; eine Ausnahme fuer
+          <code>C:\\ProxSpace</code> in &bdquo;Windows-Sicherheit &rsaquo; Viren- &amp; Bedrohungsschutz &rsaquo;
+          Ausschl&uuml;sse&ldquo; hilft dann. Ein Neustart von <code>runme64.bat</code> setzt an der Stelle fort.</span></li>
         <li>Quellcode holen:
           <pre><code>git clone https://github.com/RfidResearchGroup/proxmark3.git
 cd proxmark3</code></pre></li>
