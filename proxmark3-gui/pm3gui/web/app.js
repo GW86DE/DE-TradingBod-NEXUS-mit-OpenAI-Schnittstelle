@@ -53,7 +53,8 @@ async function katalogLaden() {
     if (ersteKat) kategorieWaehlen(ersteKat.id);
     const s = Zustand.katalog.statistik;
     $("#fuss-info").textContent =
-      `${s.befehle} Befehle · ${s.kategorien} Kategorien · ${s.uebersetzt} auf Deutsch erklaert`;
+      `${s.befehle} Befehle · ${s.kategorien} Kategorien · alle auf Deutsch ` +
+      `(${s.handgeprueft} handgeprueft, ${s.auto} automatisch uebersetzt)`;
   } catch (fehler) {
     $("#befehlsbereich").innerHTML =
       `<p class="leer-hinweis">Katalog konnte nicht geladen werden.<br>${escape(fehler)}</p>`;
@@ -305,9 +306,12 @@ function befehlDialogOeffnen(befehl) {
   const warnung = befehl.warnung
     ? `<div class="dialog-warnung">&#9888; ${escape(befehl.warnung)}</div>`
     : "";
-  const nichtUebersetzt = !befehl.uebersetzt
-    ? `<p class="hinweis-klein">Fuer diesen Befehl liegt noch keine deutsche Beschreibung vor &ndash; angezeigt wird der Originaltext des Clients.</p>`
-    : "";
+  const herkunftHinweis =
+    befehl.herkunft === "auto"
+      ? `<p class="hinweis-klein">&#9881;&#65039; Automatisch aus dem Englischen uebersetzt &ndash; kann holprig klingen. Das Original steht unten.</p>`
+      : befehl.herkunft === "original"
+      ? `<p class="hinweis-klein">Fuer diesen Befehl liegt noch keine deutsche Beschreibung vor &ndash; angezeigt wird der Originaltext des Clients.</p>`
+      : "";
   inhalt.innerHTML =
     `<h2>${escape(befehl.titel)}</h2>` +
     `<p class="dialog-pfad">${escape(befehl.pfad)}</p>` +
@@ -316,11 +320,11 @@ function befehlDialogOeffnen(befehl) {
       (befehl.offline ? `<span class="marke marke--offline">ohne Geraet nutzbar</span>` : "") +
     `</div>` +
     `<p>${escape(befehl.beschreibung)}</p>` +
-    (befehl.beschreibung_en && befehl.uebersetzt
-      ? `<p class="hinweis-klein"><em>Original:</em> ${escape(befehl.beschreibung_en)}</p>`
+    (befehl.beschreibung_en && befehl.herkunft !== "original"
+      ? `<p class="hinweis-klein"><em>Original (Client):</em> ${escape(befehl.beschreibung_en)}</p>`
       : "") +
     warnung +
-    nichtUebersetzt +
+    herkunftHinweis +
     `<div class="dialog-feld-zeile">` +
       `<label for="dialog-parameter">Zusatzangaben (optional) &ndash; werden an den Befehl angehaengt:</label>` +
       `<input id="dialog-parameter" type="text" placeholder="z. B. --blk 4 -k FFFFFFFFFFFF" />` +

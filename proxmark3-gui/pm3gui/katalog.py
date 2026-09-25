@@ -15,6 +15,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from . import auto_uebersetzung
+
 DATEN = Path(__file__).resolve().parent / "daten"
 BEFEHLE_DATEI = DATEN / "befehle.json"
 UEBERSETZUNGEN_DATEI = DATEN / "uebersetzungen.json"
@@ -52,6 +54,16 @@ def _lade_json(pfad: Path) -> dict[str, Any]:
             f"Datendatei fehlt: {pfad}. Bitte 'python3 werkzeuge/katalog_erzeugen.py' ausfuehren."
         )
     return json.loads(pfad.read_text(encoding="utf-8"))
+
+
+def _kurztitel(beschreibung: str, max_laenge: int = 42) -> str:
+    """Kurzer Titel aus dem Anfang einer Beschreibung (bis Komma/Punkt)."""
+    if not beschreibung:
+        return ""
+    kurz = beschreibung.split(". ")[0].split(", ")[0].strip().rstrip(".")
+    if len(kurz) > max_laenge:
+        kurz = kurz[:max_laenge].rsplit(" ", 1)[0] + " …"
+    return kurz
 
 
 def _stufe_von_pfad(pfad: str, roh: dict[str, Any]) -> str:
@@ -150,11 +162,30 @@ class Katalog:
         pfad = befehl["pfad"]
         deutsch = self._befehl_deutsch(pfad)
         stufe = deutsch.get("stufe") or _stufe_von_pfad(pfad, befehl)
-        titel = deutsch.get("titel") or befehl["name"]
-        # Rueckfall-Kette fuer die Beschreibung: Deutsch -> Original -> Titel.
-        # So bleibt kein Befehl ohne Text (einige, z. B. 'quit', haben im
-        # Client-Dump gar keine Beschreibung).
-        beschreibung = deutsch.get("beschreibung") or befehl["beschreibung_en"] or titel
+
+        # Beschreibung: handgepflegt -> automatisch uebersetzt -> Titel/Name.
+        auto = auto_uebersetzung.beschreibung_uebersetzen(befehl["beschreibung_en"])
+        beschreibung = deutsch.get("beschreibung") or auto or befehl["name"]
+
+        # Titel: handgepflegt -> Standardtitel des Unterbefehls -> kurzer Anfang
+        # der deutschen Beschreibung -> zur Not der Name. So ist die fett
+        # gedruckte Zeile moeglichst deutsch statt eines englischen Fachnamens.
+        titel = (
+            deutsch.get("titel")
+            or auto_uebersetzung.TITEL.get(befehl["name"])
+            or _kurztitel(beschreibung)
+            or befehl["name"]
+        )
+
+        # "handgeprueft" = von Hand uebersetzt; "auto" = maschinell aus dem
+        # Original erzeugt (in der Oberflaeche entsprechend gekennzeichnet).
+        if deutsch:
+            herkunft = "handgeprueft"
+        elif auto and auto.lower() != (befehl["beschreibung_en"] or "").lower():
+            herkunft = "auto"
+        else:
+            herkunft = "original"
+
         return {
             "pfad": pfad,
             "name": befehl["name"],
@@ -167,6 +198,7 @@ class Katalog:
             "beschreibung_en": befehl["beschreibung_en"],
             "stufe": stufe,
             "uebersetzt": bool(deutsch),
+            "herkunft": herkunft,
             "warnung": self._warnung(pfad),
         }
 
@@ -221,6 +253,9 @@ class Katalog:
         return {
             "befehle": len(alle),
             "uebersetzt": sum(1 for b in alle if b["uebersetzt"]),
+            "handgeprueft": sum(1 for b in alle if b["herkunft"] == "handgeprueft"),
+            "auto": sum(1 for b in alle if b["herkunft"] == "auto"),
+            "deutsch": sum(1 for b in alle if b["herkunft"] in ("handgeprueft", "auto")),
             "kategorien": len(self._baum),
             "abschnitte": sum(len(k["abschnitte"]) for k in self._baum),
             "offline_faehig": sum(1 for b in alle if b["offline"]),

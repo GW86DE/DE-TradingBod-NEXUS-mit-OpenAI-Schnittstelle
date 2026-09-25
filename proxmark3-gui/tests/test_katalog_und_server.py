@@ -151,6 +151,24 @@ def test_katalog() -> None:
     treffer_de = kat.suche("auslesen")
     pruefe(len(treffer_de) > 0, "Suche findet auch deutsche Begriffe")
 
+    # Auto-Uebersetzung: jeder Befehl hat deutschen Text, nichts bleibt roh englisch.
+    stat = kat.statistik()
+    pruefe(stat["deutsch"] >= stat["befehle"] - 25,
+           f"fast alle Befehle haben deutschen Text ({stat['deutsch']}/{stat['befehle']})")
+    pruefe(stat["handgeprueft"] >= 40, "handgepruefte Uebersetzungen vorhanden")
+    from pm3gui import auto_uebersetzung as au
+    pruefe(au.beschreibung_uebersetzen("Simulate EM410x tag") == "EM410x-Tag simulieren",
+           "Satz-Vorlage: 'Simulate X tag' -> 'X-Tag simulieren'")
+    pruefe("Signalpuffer" in au.beschreibung_uebersetzen("demodulate a EM410x tag from the GraphBuffer"),
+           "GraphBuffer wird zu Signalpuffer")
+    pruefe(au.beschreibung_uebersetzen("Read an ADF from the card") == "ADF von der Karte lesen",
+           "Satz-Vorlage: 'Read X from the card'")
+    pruefe("MIFARE" in au.beschreibung_uebersetzen("Dump MIFARE tag"),
+           "Fachbegriff MIFARE bleibt stehen")
+    b = kat.befehl("lf hid clone")
+    pruefe(b["herkunft"] in ("auto", "handgeprueft") and "klonen" in b["beschreibung"].lower(),
+           "Beispiel 'lf hid clone' ist auf Deutsch")
+
     # Baumstruktur konsistent
     for k in kat.baum:
         pruefe(
