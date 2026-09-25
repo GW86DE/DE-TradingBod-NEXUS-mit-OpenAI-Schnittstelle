@@ -54,8 +54,11 @@ const TEXTE = {
         ProxSpace verlangt aber noch die &bdquo;mingw64&ldquo;-Pakete. Bei der Einrichtung erscheint dann
         <code>error: target not found: mingw-w64-x86_64-arm-none-eabi-gcc</code>, und die Firmware laesst sich
         nicht bauen. Solange ProxSpace das nicht behoben hat, ist <strong>Weg 1</strong> der einfachere Weg.
-        Wer trotzdem selbst bauen moechte, installiert die Werkzeuge in der fertig eingerichteten
-        ProxSpace-Konsole (<code>pm3 ~$</code>) von Hand:
+        Wer trotzdem selbst bauen moechte, legt zuerst im Windows-Explorer den Ordner
+        <code>C:\\ProxSpace\\msys2\\ucrt64</code> an (ProxSpace bringt ihn nicht mit; ohne ihn meldet die
+        Installation <code>/ucrt64 exists in filesystem</code>, weil MSYS2 dann <code>ucrt64.exe</code> fuer
+        diesen Ordner haelt). Danach die Werkzeuge in der fertig eingerichteten
+        ProxSpace-Konsole (<code>pm3 ~$</code>) von Hand installieren:
         <pre><code>pacman -S --noconfirm mingw-w64-ucrt-x86_64-arm-none-eabi-gcc \\
   mingw-w64-ucrt-x86_64-arm-none-eabi-binutils mingw-w64-ucrt-x86_64-arm-none-eabi-newlib</code></pre>
         und macht sie vor jedem <code>make</code> auffindbar:
