@@ -52,7 +52,12 @@ const TEXTE = {
           (die ZIP-Datei unter &bdquo;Assets&ldquo; der neuesten Version) und nach <code>C:\\ProxSpace</code>
           entpacken (Pfad <strong>ohne</strong> Leerzeichen und Umlaute). Im Ordner muss danach direkt
           <code>runme64.bat</code> liegen.
-          <br><span class="hinweis-klein">Achtung: <strong>nicht</strong> MSYS2 von msys2.org
+          <br><span class="hinweis-klein">Achtung: <strong>nicht</strong> in OneDrive, auf den Desktop oder
+          unter &bdquo;Dokumente&ldquo; entpacken (werden oft von OneDrive synchronisiert, und Pfade wie
+          &bdquo;Proxmark 3&ldquo; oder &bdquo;Pers&ouml;nlich&ldquo; enthalten Leerzeichen bzw. Umlaute &ndash;
+          dann bricht die Einrichtung ab, erkennbar an einem seltsamen Ordner wie &bdquo;3&ldquo;).
+          Die Adresszeile im Explorer muss am Ende &bdquo;Lokaler Datentr&auml;ger (C:) &rsaquo; ProxSpace&ldquo; zeigen.</span>
+          <br><span class="hinweis-klein">Ebenso <strong>nicht</strong> MSYS2 von msys2.org
           installieren &ndash; ProxSpace bringt sein eigenes, fertig vorbereitetes MSYS2 mit.</span></li>
         <li><strong>Immer</strong> ueber <code>C:\\ProxSpace\\runme64.bat</code> starten (Doppelklick),
           nie ueber MSYS2-Verknuepfungen im Startmenue oder <code>mingw64.exe</code>.
